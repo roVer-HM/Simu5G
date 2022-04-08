@@ -24,6 +24,7 @@
 Define_Module(ChannelControl);
 
 using namespace omnetpp;
+using namespace inet;
 
 std::ostream& operator<<(std::ostream& os, const ChannelControl::RadioEntry& radio)
 {

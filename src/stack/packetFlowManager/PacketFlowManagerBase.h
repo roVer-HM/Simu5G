@@ -80,8 +80,8 @@ class PacketFlowManagerBase : public omnetpp::cSimpleModule
         virtual void removePdcpBurst(StatusDescriptor* desc, PdcpStatus& pdcpStatus,  unsigned int pdcpSno, bool ack);
         virtual void removePdcpBurstRLC(StatusDescriptor* desc, unsigned int rlcSno, bool ack);
 
-        virtual int numInitStages() const {return 2;}
-        virtual void initialize(int stage);
+        virtual int numInitStages() const  override {return 2;}
+        virtual void initialize(int stage)  override;
 
 //      virtual bool hasFragments(LogicalCid lcid, unsigned int pdcp);
 
@@ -179,7 +179,7 @@ class PacketFlowManagerBase : public omnetpp::cSimpleModule
 
 
         virtual ~PacketFlowManagerBase();
-        virtual void finish();
+        virtual void finish() override;
 
 };
 #endif

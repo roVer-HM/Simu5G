@@ -15,6 +15,8 @@
 
 Define_Module(TrafficGeneratorBase);
 
+using namespace inet;
+
 TrafficGeneratorBase::TrafficGeneratorBase()
 {
     fbSource_ = nullptr;

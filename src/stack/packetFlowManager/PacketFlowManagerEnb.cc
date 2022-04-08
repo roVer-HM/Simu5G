@@ -266,8 +266,8 @@ void PacketFlowManagerEnb::insertRlcPdu(LogicalCid lcid, const inet::Ptr<LteRlcU
          const RlcSduListSizes* rlcSduSizes = rlcPdu->getRlcSduSizes();
          auto lit = rlcSduList->begin();
          auto sit = rlcSduSizes->begin();
-         LteRlcSdu* rlcSdu;
-         FlowControlInfo* lteInfo;
+         LteRlcSdu* rlcSdu = nullptr;
+         FlowControlInfo* lteInfo = nullptr;
 
          // manage burst state, for debugging and avoid errors between rlc state and packetflowmanager state
          if(status == START)
@@ -1071,8 +1071,16 @@ uint64_t PacketFlowManagerEnb::getDataVolume(MacNodeId nodeId, Direction dir)
         return node->second.dlBits;
     else if(dir == UL)
         return node->second.ulBits;
-    else
-       throw cRuntimeError("%s::getDataVolume - Wrong direction");
+    else {
+        std::string direction;
+        if (D2D == dir)
+            direction = "D2D";
+        else if (D2D_MULTI == dir)
+            direction = "D2D_MULTI";
+        else
+            direction = "UNKNOWN_DIRECTION";
+       throw cRuntimeError("%s::getDataVolume - Wrong direction", direction.c_str());
+    }
 }
 
 void PacketFlowManagerEnb::resetDataVolume(MacNodeId nodeId, Direction dir)
@@ -1084,8 +1092,16 @@ void PacketFlowManagerEnb::resetDataVolume(MacNodeId nodeId, Direction dir)
        node->second.dlBits = 0;
     else if(dir == UL)
        node->second.ulBits = 0;
-    else
-      throw cRuntimeError("%s::getDataVolume - Wrong direction");
+    else {
+        std::string direction;
+        if (D2D == dir)
+            direction = "D2D";
+        else if (D2D_MULTI == dir)
+            direction = "D2D_MULTI";
+        else
+            direction = "UNKNOWN_DIRECTION";
+        throw cRuntimeError("%s::getDataVolume - Wrong direction", direction.c_str());
+    }
 }
 
 void PacketFlowManagerEnb::resetDataVolume(MacNodeId nodeId)

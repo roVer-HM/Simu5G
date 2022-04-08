@@ -240,8 +240,8 @@ void PacketFlowManagerUe::insertRlcPdu(LogicalCid lcid, const inet::Ptr<LteRlcUm
         const RlcSduListSizes* rlcSduSizes = rlcPdu->getRlcSduSizes();
         auto lit = rlcSduList->begin();
         auto sit = rlcSduSizes->begin();
-        LteRlcSdu* rlcSdu;
-        FlowControlInfo* lteInfo;
+        LteRlcSdu* rlcSdu = nullptr;
+        FlowControlInfo* lteInfo = nullptr;
 
         for (; lit != rlcSduList->end(); ++lit, ++sit){
             auto rlcSdu = (*lit)->peekAtFront<LteRlcSdu>();

@@ -60,7 +60,7 @@ class PacketFlowManagerUe : public PacketFlowManagerBase
         typedef  std::map<LogicalCid, StatusDescriptor> ConnectionMap;
         ConnectionMap connectionMap_; // lcid to the corresponding StatusDescriptor
 
-    LtePdcpRrcUe *pdcp_;
+    LtePdcpRrcUe *pdcp_ = nullptr;
     Delay pdcpDelay;
 
     //debug vars to be deleted
