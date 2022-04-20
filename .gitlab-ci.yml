@@ -1,9 +1,9 @@
 variables:
   RV: 'crownet/scripts'
-  OPPCONTTAG: '6.0rc2'   # tag of OMNeT++ container to be used
+  OPPCONTTAG: '6.0'   # tag of OMNeT++ container to be used
   #OPPCONTTAG: 'latest'
-  #INETBRANCH: 'master'
-  INETBRANCH: 'v4.3.7'
+  INETBRANCH: 'hm_master'
+  #INETBRANCH: 'v4.3.7'
   BUILDMODE: 'debug'       # we use MODE=debug since currently for the upstream project, fingerprints are created in debug mode
 
 stages:
