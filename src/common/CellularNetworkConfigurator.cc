@@ -37,7 +37,7 @@ void CellularNetworkConfigurator::initialize(int stage){
         }
     }
 }
-
+/*
 bool CellularNetworkConfigurator::isWirelessInterface(NetworkInterface *netIf)
 {
     // if interfaceEntry starts with any of given interface names.
@@ -49,5 +49,5 @@ bool CellularNetworkConfigurator::isWirelessInterface(NetworkInterface *netIf)
     }
     return false;
 }
-
+*/
 

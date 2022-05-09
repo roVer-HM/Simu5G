@@ -37,7 +37,7 @@ public:
 
 protected:
     virtual void initialize(int stage) override;
-    virtual bool isWirelessInterface(NetworkInterface  *netIf) override;
+    virtual bool isWirelessInterface(NetworkInterface  *netIf) {return netIf->isWireless();}
 
     std::vector<std::pair<std::string, int>> interfaceComparator;
 };
