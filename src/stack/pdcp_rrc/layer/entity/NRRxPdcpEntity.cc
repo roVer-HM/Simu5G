@@ -54,7 +54,7 @@ void NRRxPdcpEntity::handlePdcpSdu(Packet* pdcpSdu)
     if (rcvdSno < rxWindowDesc_.rxDeliv_)
     {
         EV << NOW << " NRRxPdcpEntity::handlePdcpSdu - the SN[" << rcvdSno << "] <  was already considered for reordering. Discard the SDU" << endl;
-        delete pdcpSdu;
+        dropAndDelete(pdcpSdu);
         return;
     }
 
@@ -63,7 +63,7 @@ void NRRxPdcpEntity::handlePdcpSdu(Packet* pdcpSdu)
     if (index >= rxWindowDesc_.windowSize_)
     {
         EV << NOW << " NRRxPdcpEntity::handlePdcpSdu - the SN[" << rcvdSno << "] <  is too large with respect to the window size. Advance the window and deliver out-of-sequence SDUs" << endl;
-        delete pdcpSdu;
+        dropAndDelete(pdcpSdu);
         return;
     }
 
@@ -71,7 +71,7 @@ void NRRxPdcpEntity::handlePdcpSdu(Packet* pdcpSdu)
     if (received_.at(index))
     {
         EV << NOW << " NRRxPdcpEntity::handlePdcpSdu - the SN[" << rcvdSno << "] <  has already been received. Discard the SDU" << endl;
-        delete pdcpSdu;
+        dropAndDelete(pdcpSdu);
         return;
     }
 
