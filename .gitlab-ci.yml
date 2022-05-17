@@ -28,8 +28,8 @@ Build:
     - "mv .tmp simu5g"
     - "git clone --branch ${INETBRANCH} https://gitlab-ci-token:${CI_JOB_TOKEN}@sam-dev.cs.hm.edu/rover/inet.git inet4"
     - "cd inet4"
-    - "../$RV/omnetpp ${OPPCONTTAG} exec make makefiles"
-    - "../$RV/omnetpp ${OPPCONTTAG} exec make -j16 MODE=${BUILDMODE}; TEST_STATUS=${PIPESTATUS[0]}"
+    - "../$RV/omnetpp ${OPPCONTTAG} exec \"source setenv && make makefiles\""
+    - "../$RV/omnetpp ${OPPCONTTAG} exec \"source setenv && make -j16 MODE=${BUILDMODE}\"; TEST_STATUS=${PIPESTATUS[0]}"
     # we do not need the inet sources anymore - delete them to have less artifacts
     - "find . -name \"*.cc\" -type f -delete"
     # build simu5g itself
