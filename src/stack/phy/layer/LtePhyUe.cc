@@ -130,7 +130,7 @@ void LtePhyUe::initialize(int stage)
             nodeId_ = getAncestorPar("macNodeId");
         EV << "Local MacNodeId: " << nodeId_ << endl;
     }
-    else if (stage == inet::INITSTAGE_PHYSICAL_LAYER)
+    else if (stage == inet::INITSTAGE_LINK_LAYER)
     {
         // get serving cell from configuration
         // TODO find a more elegant way
