@@ -12,6 +12,10 @@
 package simu5g.nodes.mec.VirtualisationInfrastructure;
 
 import inet.linklayer.ppp.PppInterface;
+import inet.linklayer.ethernet.contract.IEthernetLayer;
+import inet.linklayer.ieee8021q.IIeee8021qLayer;
+import inet.linklayer.ieee8021r.IIeee8021rLayer;
+import inet.linklayer.ieee8022.IIeee8022Llc;
 import inet.networklayer.common.InterfaceTable;
 import inet.networklayer.ipv4.Ipv4RoutingTable;
 import inet.networklayer.contract.IRoutingTable;
@@ -19,6 +23,7 @@ import inet.networklayer.contract.INetworkLayer;
 import inet.applications.contract.IApp;
 import inet.transportlayer.udp.Udp;
 import inet.transportlayer.tcp.Tcp;
+import inet.protocolelement.contract.IProtocolLayer;
 
 import inet.common.MessageDispatcher;
 import simu5g.nodes.mec.VirtualisationInfrastructure.VirtualisationManager;
@@ -34,7 +39,7 @@ module VirtualisationInfrastructure
 {
     parameters:
         @networkNode();
-        @display("bgb=1350,750;i=block/dispatch");
+        @display("bgb=1343.3201,1123.16;i=block/dispatch");
         @figure[applicationLayer](type=rectangle; pos=250,6; size=600,130; lineColor=#808080; cornerRadius=5; fillColor=#ffff00; fillOpacity=0.1);
         @figure[applicationLayer.title](type=text; pos=845,11; anchor=ne; text="application layer");
         @figure[transportLayer](type=rectangle; pos=250,156; size=600,130; fillColor=#ff0000; lineColor=#808080; cornerRadius=5; fillOpacity=0.1);
@@ -43,6 +48,8 @@ module VirtualisationInfrastructure
         @figure[networkLayer.title](type=text; pos=845,311; anchor=ne; text="network layer");
         @figure[linkLayer](type=rectangle; pos=250,456; size=600,130; fillColor=#0000ff; lineColor=#808080; cornerRadius=5; fillOpacity=0.1);
         @figure[linkLayer.title](type=text; pos=845,461; anchor=ne; text="link layer");
+        @figure[interfaceLayer](type=rectangle; pos=250,600; size=600,130; fillColor=#00ffff; lineColor=#808080; cornerRadius=5; fillOpacity=0.1);
+        @figure[interfaceLayer.title](type=text; pos=845,605; anchor=ne; text="interface layer");
         @figure[submodules];
 
         //# Network Layer specs
@@ -53,6 +60,8 @@ module VirtualisationInfrastructure
 
         int numBGMecApp = default(0);
         int numExtEthInterfaces = default(0);
+        
+        ethernet.registerProtocol = default(true);
 
     gates:
 
@@ -71,37 +80,30 @@ module VirtualisationInfrastructure
         interfaceTable: InterfaceTable {
             @display("p=61.344,74.976;is=s");
         }
-
-//        // TODO: should not include a routing table
-//        // routing table
-//        routingTable: <routingTableType> like IRoutingTable if routingTableType != "" {
-//            parameters:
-//                @display("p=61.344,124.96;is=s");
-//        }
-
-
-//		bgApp[numBGMecApp]: <> like IApp {
-//            @display("p=551.04,73.8,row,140");
-//        }
+        ethernet: <default("EthernetEncapsulation")> like IEthernetLayer if typename != "" {
+            @display("p=419.68002,519.44");
+        }
+        li: MessageDispatcher {
+            @display("p=550,596.84;b=600,5,,,,1");
+        }
 
         //#
         //# ppp modules
         //#
         pppIf[sizeof(ppp)]: PppInterface {
-            @display("p=550,508");
+            @display("p=780.88,686.28");
         }
-
 
    	  	//# ethernet interface used for communicating with the MEC service in the MEC platform
         eth: <default("EthernetInterface")> like IEthernetInterface {
             parameters:
-                @display("p=720,508,row,150;q=txQueue");
+                @display("p=548.68,686.28,row,150;q=txQueue");
         }
 
         //# ethernet interface used for communicating with external applications in emulation mode
         extEth[numExtEthInterfaces]: <default("ExtLowerEthernetInterface")> like IEthernetInterface {
             parameters:
-                @display("p=302,508,row,150;q=txQueue");
+                @display("p=283.80002,686.28,row,150;q=txQueue");
         }
 
 
@@ -192,19 +194,28 @@ module VirtualisationInfrastructure
         ipv6.transportIn <-- tn.out++ if hasIpv6;
         ipv6.transportOut --> tn.in++ if hasIpv6;
 
+        li.out++ --> nl.in++;
+        li.in++ <-- nl.out++;
+
+        nl.out++ --> ethernet.upperLayerIn if exists(ethernet);
+        ethernet.upperLayerOut --> nl.in++ if exists(ethernet);
+
+        ethernet.lowerLayerOut --> li.in++ if exists(ethernet);
+        li.out++ --> ethernet.lowerLayerIn if exists(ethernet);
+
         for i=0..sizeof(ppp)-1 {
-            pppIf[i].upperLayerOut --> nl.in++;
-            pppIf[i].upperLayerIn <-- nl.out++;
+            pppIf[i].upperLayerOut --> li.in++;
+            pppIf[i].upperLayerIn <-- li.out++;
             pppIf[i].phys <--> ppp++;
         }
 
         for i=0..numExtEthInterfaces-1 {
-            extEth[i].upperLayerOut --> nl.in++;
-            extEth[i].upperLayerIn <-- nl.out++;
+            extEth[i].upperLayerOut --> li.in++;
+            extEth[i].upperLayerIn <-- li.out++;
         }
 
-        eth.upperLayerOut --> nl.in++;
-        eth.upperLayerIn <-- nl.out++;
+        eth.upperLayerOut --> li.in++;
+        eth.upperLayerIn <-- li.out++;
         eth.phys <--> mePlatform;
 
 }

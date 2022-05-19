@@ -17,6 +17,7 @@ import inet.linklayer.contract.ILoopbackInterface;
 import inet.transportlayer.contract.ITcp;
 import inet.transportlayer.contract.IUdp;
 import inet.linklayer.contract.IEthernetInterface;
+import inet.linklayer.ethernet.contract.IEthernetLayer;
 import inet.networklayer.common.InterfaceTable;
 import inet.networklayer.ipv4.Ipv4RoutingTable;
 import inet.networklayer.contract.IRoutingTable;
@@ -37,7 +38,7 @@ module MECPlatform
 {
     parameters:
         @networkNode();
-        @display("bgb=1122.99,610.08;i=block/cogwheel");
+        @display("bgb=1107.7025,757.23505;i=block/cogwheel");
 
         //# Network Layer specs
         string networkLayerType = default("IPv4NetworkLayer");
@@ -55,11 +56,13 @@ module MECPlatform
         bool hasIpv6 = default(false);
 
         //# External Ethernet interfaces
-
-        int numExtEthInterfaces = default(0); 
+        int numExtEthInterfaces = default(0);
 
         //# Loopback interfaces
         int numLoInterfaces = default(1);
+        
+        //# enable protocol registration for Ethernet
+        ethernet.registerProtocol = default(true);
 
     gates:
         inout virtInfr; // connection to the virtualization infrastructure to communicate with the MEapps
@@ -76,25 +79,33 @@ module MECPlatform
         }
 
         //# layer submodules (must be ordered from lower to upper layers)
-        
+
         //# link layer 
         lo[numLoInterfaces]: <default("LoopbackInterface")> like ILoopbackInterface {
             parameters:
-                @display("p=373.92,521.52,row,150");
+                @display("p=374.39502,671.3775,row,150");
         }
 
         // ethernet interface used for communicating with external applications in emulation mode
         extEth[numExtEthInterfaces]: <default("ExtLowerEthernetInterface")> like IEthernetInterface {
             parameters:
-                @display("p=549.81,530.13,row,150;q=txQueue");
+                @display("p=548.925,671.3775,row,150;q=txQueue");
         }
-        
+
         // ethernet interface used for communicating with interal MEC applications in the virtualization infrastructure
         mp1Eth: <default("EthernetInterface")> like IEthernetInterface {
             parameters:
-                @display("p=739.23,521.52,row,150;q=txQueue");
+                @display("p=741.7525,671.3775,row,150;q=txQueue");
         }
-        
+
+
+        ethernet: <default("EthernetEncapsulation")> like IEthernetLayer if typename != "" {
+            @display("p=419.68002,519.44");
+        }
+        li: MessageDispatcher {
+            @display("p=550,596.84;b=600,5,,,,1");
+        }
+
         //# network layer
         ipv4: <default("Ipv4NetworkLayer")> like INetworkLayer if hasIpv4 {
             parameters:
@@ -152,10 +163,10 @@ module MECPlatform
             mecService[i].socketOut --> at.in++;
             mecService[i].socketIn <-- at.out++;
         }
-        
+
         serviceRegistry.socketOut --> at.in++;
         serviceRegistry.socketIn <-- at.out++;
-        
+
 
         at.out++ --> udp.appIn if hasUdp;
         at.in++ <-- udp.appOut if hasUdp;
@@ -188,22 +199,31 @@ module MECPlatform
         tn.out++ --> nl.in++;
         tn.in++ <-- nl.out++;
 
+        li.out++ --> nl.in++;
+        li.in++ <-- nl.out++;
+
+        nl.out++ --> ethernet.upperLayerIn if exists(ethernet);
+        ethernet.upperLayerOut --> nl.in++ if exists(ethernet);
+
+        ethernet.lowerLayerOut --> li.in++ if exists(ethernet);
+        li.out++ --> ethernet.lowerLayerIn if exists(ethernet);
+
         //#
         //# Internal link layer connections to network layer  
         //#
 
         for i=0..numExtEthInterfaces-1 {
-            extEth[i].upperLayerOut --> nl.in++;
-            extEth[i].upperLayerIn <-- nl.out++;
+            extEth[i].upperLayerOut --> li.in++;
+            extEth[i].upperLayerIn <-- li.out++;
         }
 
         for i=0..numLoInterfaces-1 {
-            nl.out++ --> lo[i].upperLayerIn;
-            lo[i].upperLayerOut --> nl.in++;
+            li.out++ --> lo[i].upperLayerIn;
+            lo[i].upperLayerOut --> li.in++;
         }
 
-        mp1Eth.upperLayerOut --> nl.in++;
-        mp1Eth.upperLayerIn <-- nl.out++;
+        mp1Eth.upperLayerOut --> li.in++;
+        mp1Eth.upperLayerIn <-- li.out++;
         mp1Eth.phys <--> virtInfr;
 
 }

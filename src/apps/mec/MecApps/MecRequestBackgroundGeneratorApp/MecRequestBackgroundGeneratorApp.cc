@@ -24,7 +24,9 @@ Define_Module(MecRequestBackgroundGeneratorApp);
 MecRequestBackgroundGeneratorApp::~MecRequestBackgroundGeneratorApp()
 {
     cancelAndDelete(burstPeriod);
-    cancelAndDelete(sendBurst);
+    burstPeriod = nullptr;
+    cancelAndDelete(sendTimer);
+    sendTimer = nullptr;
 }
 
 void MecRequestBackgroundGeneratorApp::handleServiceMessage()
