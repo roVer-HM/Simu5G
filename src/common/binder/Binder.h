@@ -46,6 +46,9 @@ class Binder : public omnetpp::cSimpleModule
     std::map<int, OmnetId> nodeIds_;
 
     // for GTP tunneling with MEC hosts involved
+    std::set<inet::L3Address> mecHostAddress_;
+
+    // for GTP tunneling with MEC hosts involved
     // this map associates the L3 address of the Virt. Infrastructure of a MEC host to
     // the IP address of the corresponding UPF
     std::map<inet::L3Address, inet::L3Address> mecHostToUpfAddress_;
@@ -433,6 +436,10 @@ class Binder : public omnetpp::cSimpleModule
 //        x2Address_[nodeId] = interfAddr;
 //    }
 
+    /**
+     * Register the address of MEC Hosts in the simulation
+     */
+    void registerMecHost(const inet::L3Address& mecHostAddress);
     /**
      * Associates the given MEC Host address to its corresponding UPF
      */

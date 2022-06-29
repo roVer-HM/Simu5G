@@ -226,6 +226,11 @@ void MecOrchestrator::startMECApp(UALCMPMessage* msg)
              appInfo->instanceId = "emulated_" + desc.getAppName();
              newMecApp.isEmulated = true;
 
+             // register the address of the MEC app to the Binder, so as the GTP knows the endpoint (UPF_MEC) where to forward packets to
+             cModule* vi = newMecApp.mecHost->getSubmodule("virtualisationInfrastructure");
+             inet::L3Address mecHostAddress = inet::L3AddressResolver().resolve(vi->getFullPath().c_str());
+             inet::L3Address gtpAddress = inet::L3AddressResolver().resolve(newMecApp.mecHost->getSubmodule("upf_mec")->getFullPath().c_str());
+             binder_->registerMecHostUpfAddress(appInfo->endPoint.addr, gtpAddress);
          }
          else
          {
@@ -495,7 +500,6 @@ void MecOrchestrator::onboardApplicationPackages()
     if(this->hasPar("mecApplicationPackageList") && strcmp(par("mecApplicationPackageList").stringValue(), "")){
 
         char* token = strtok ( (char*) par("mecApplicationPackageList").stringValue(), ", ");            // split by commas
-
         while (token != NULL)
         {
             int len = strlen(token);
