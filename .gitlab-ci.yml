@@ -51,7 +51,7 @@ Build:
   stage: test
   script:
     - "cd simu5g/tests/fingerprint/LTE"
-    - "../../../$RV/omnetpp ${OPPCONTTAG} exec ./fingerprints"
+    - "../../../../$RV/omnetpp ${OPPCONTTAG} exec ./fingerprints"
   artifacts:
     paths:
     - simu5g/tests/fingerprint
