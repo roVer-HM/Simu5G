@@ -394,7 +394,9 @@ double NRChannelModel_3GPP38_901::computeShadowing(double sqrDistance, MacNodeId
         double a = exp(-0.5 * (space / correlationDistance_));
 
         //Get last shadowing attenuation computed
-        double old = lastComputedSF_.at(nodeId).second;
+        //note: for uplink (cqiDl == false), actualShadowingMap is equal to lastComputedSF_ (see above)
+        //      for downlink (cqiDl == true), actualShadowingMap has been obtained from sending node
+        double old = actualShadowingMap->at(nodeId).second;
 
         //Compute shadowing with a EAW (Exponential Average Window) (step2)
         att = a * old + sqrt(1 - pow(a, 2)) * normal(mean, stdDev);
