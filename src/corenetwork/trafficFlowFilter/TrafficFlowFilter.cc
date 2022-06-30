@@ -41,15 +41,18 @@ void TrafficFlowFilter::initialize(int stage)
         gateway_ = getAncestorPar("gateway").stringValue();
     }
 
-
-    if(isBaseStation(ownerType_)) {
+    // mec
+    if(isBaseStation(ownerType_))
+    {
         /*
-         *              * @author Alessandro Noferi
-         */
+          * @author Alessandro Noferi
+          *
+          */
         // obtain the IP address of externel MEC applications (if any)
-        //begin
+
         std::string extAddress = getAncestorPar("extMeAppsAddress").stringValue();
-        if(extAddress != "") {
+        if(extAddress != "")
+        {
             std::vector<std::string> extAdd =  cStringTokenizer(extAddress.c_str(), "/").asVector();
             if(extAdd.size() != 2){
                 throw cRuntimeError("TrafficFlowFilter::initialize - Bad extMeApps parameter. It must be like address/mask");
@@ -59,7 +62,7 @@ void TrafficFlowFilter::initialize(int stage)
             EV << "TrafficFlowFilter::initialize - emulation support:  meAppsExtAddres: " << meAppsExtAddress_.str()<<"/"<< meAppsExtAddressMask_<< endl;
         }
     }
-            //end
+
     if(getParentModule()->hasPar("mecHost")){
 
         meHost = getParentModule()->par("mecHost").stringValue();
@@ -73,7 +76,7 @@ void TrafficFlowFilter::initialize(int stage)
             EV << "TrafficFlowFilter::initialize - meHost: " << meHost << " meHostAddress: " << meHostAddress.str() << endl;
         }
     }
-       //end mec
+    //end mec
 
     // register service processing IP-packets on the LTE Uu Link
     auto gateIn = gate("internetFilterGateIn");

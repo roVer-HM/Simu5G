@@ -45,7 +45,7 @@ class Binder : public omnetpp::cSimpleModule
     std::vector<MacNodeId> secondaryNodeToMasterNode_;
     std::map<int, OmnetId> nodeIds_;
 
-    // for GTP tunneling with MEC hosts involved
+    // stores the IP address of the MEC hosts in the simulation
     std::set<inet::L3Address> mecHostAddress_;
 
     // for GTP tunneling with MEC hosts involved

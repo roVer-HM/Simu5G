@@ -156,7 +156,6 @@ void MecOrchestrator::startMECApp(UALCMPMessage* msg)
     {
         EV << "MecOrchestrator::startMECApp - Application package with AppDId["<< contAppMsg->getAppDId() << "] not onboarded." << endl;
         sendCreateAppContextAck(false, contAppMsg->getRequestId());
-//        throw cRuntimeError("MecOrchestrator::startMECApp - Application package with AppDId[%s] not onboarded", contAppMsg->getAppDId());
     }
 
     const ApplicationDescriptor& desc = it->second;
@@ -314,7 +313,6 @@ void MecOrchestrator::stopMECApp(UALCMPMessage* msg){
      if(meAppMap[contextId].isEmulated)
      {
          isTerminated =  mecpm->terminateEmulatedMEApp(deleteAppMsg);
-         std::cout << "terminateEmulatedMEApp with result: " << isTerminated << std::endl;
      }
      else
      {
@@ -503,12 +501,14 @@ void MecOrchestrator::onboardApplicationPackages()
         while (token != NULL)
         {
             int len = strlen(token);
-            char buf[len+strlen(".json")+strlen("ApplicationDescriptors/")+1];
+            char* buf = new char[len+strlen(".json")+strlen("ApplicationDescriptors/")+1];
+            //char buf[len+strlen(".json")+strlen("ApplicationDescriptors/")+1];
             strcpy(buf,"ApplicationDescriptors/");
             strcat(buf,token);
             strcat(buf,".json");
             onboardApplicationPackage(buf);
             token = strtok (NULL, ", ");
+            delete[] buf;
         }
     }
     else{
