@@ -50,7 +50,7 @@ Build:
 4G_Fingerprints:
   stage: test
   script:
-    - "cd simu5g/tests/LTE/fingerprint"
+    - "cd simu5g/tests/fingerprint/LTE"
     - "../../../$RV/omnetpp ${OPPCONTTAG} exec ./fingerprints"
   artifacts:
     paths:
