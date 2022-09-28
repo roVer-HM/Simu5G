@@ -56,7 +56,7 @@ namespace Http {
      * ProblemDetailBase provides a basic usage of the ProblemDetail structure
      */
 
-    typedef struct
+    struct ProblemDetailBase
     {
         std::string type;
         std::string title;
@@ -73,7 +73,7 @@ namespace Http {
             return problemDetails;
         }
 
-    } ProblemDetailBase;
+    };
 
 
     /**************************** HTTP MESSAGE PARSING ******************************
@@ -129,7 +129,7 @@ namespace Http {
      * @param currentHttpMessage variable for storing the current HTTP message
      * @param messageQueue queue where to insert completed Http Messages
      */
-    void parseReceivedMsg(int socketId, std::string& packet, omnetpp::cQueue& messageQueue, std::string* storedData, HttpBaseMessage** currentHttpMessage = nullptr );
+    bool parseReceivedMsg(int socketId, std::string& packet, omnetpp::cQueue& messageQueue, std::string* storedData, HttpBaseMessage** currentHttpMessage = nullptr );
 
     /*************************************************************************************/
 
