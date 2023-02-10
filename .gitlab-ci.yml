@@ -1,11 +1,13 @@
 variables:
   RV: 'crownet/scripts'
 # Tags of all containers required for building and testing
- # Note: Tags here must include ALL container tags required in the fingerprint
- #       *.csv and *.yml files.
-  CROWNET_OPP_CONT_TAG: '6.0.1'                # tag of OMNeT++ container to be used
+# Note: Tags here must include ALL container tags required in the fingerprint
+#       *.csv and *.yml files.
   INETBRANCH: 'v4.4.1'
   BUILDMODE: 'release'
+  CROWNET_IMAGE_REG: '${CI_REGISTRY}'
+  CROWNET_IMAGE_BASE: '${CROWNET_IMAGE_REG}/rover/crownet'
+  CROWNET_OPP_CONT_TAG: '6.0.1'  #tag of OMNeT++ container to be used
 
   CROWNET_IMAGE_REG: '${CI_REGISTRY}'
   CROWNET_IMAGE_BASE: '${CROWNET_IMAGE_REG}/rover/crownet'
@@ -14,7 +16,7 @@ stages:
   - build
   - test
 
-# this job 
+# this job
 # - prepares the environment
 #   (pulls required docker containers, clones and builds inet)
 # - builds the simu5g project itself
