@@ -1,10 +1,10 @@
 variables:
   RV: 'crownet/scripts'
-  OPPCONTTAG: '6.0'   # tag of OMNeT++ container to be used
-  #OPPCONTTAG: 'latest'
-  #INETBRANCH: 'hm_master'
   INETBRANCH: 'v4.4.0'
   BUILDMODE: 'release'
+  CROWNET_IMAGE_REG: '${CI_REGISTRY}'
+  CROWNET_IMAGE_BASE: '${CROWNET_IMAGE_REG}/rover/crownet'
+  CROWNET_OPP_CONT_TAG: '6.0.1'  #tag of OMNeT++ container to be used
 
 stages:
   - build
@@ -20,7 +20,7 @@ Build:
     # docker login asks for the password to be passed through stdin for security
     # we use $CI_JOB_TOKEN here which is a special token provided by GitLab
     - echo -n $CI_JOB_TOKEN | docker login -u gitlab-ci-token --password-stdin $CI_REGISTRY
-    - docker pull $CI_REGISTRY/rover/crownet/omnetpp:${OPPCONTTAG}
+    - docker pull $CI_REGISTRY/rover/crownet/omnetpp:${CROWNET_OPP_CONT_TAG}
   script:
     - "mkdir .tmp"
     - "mv * .tmp"
@@ -28,14 +28,14 @@ Build:
     - "mv .tmp simu5g"
     - "git clone --branch ${INETBRANCH} https://gitlab-ci-token:${CI_JOB_TOKEN}@sam-dev.cs.hm.edu/rover/inet.git inet4"
     - "cd inet4"
-    - "../$RV/omnetpp ${OPPCONTTAG} exec \"source setenv && make makefiles\""
-    - "../$RV/omnetpp ${OPPCONTTAG} exec \"source setenv && make -j16 MODE=${BUILDMODE}\"; TEST_STATUS=${PIPESTATUS[0]}"
+    - "../$RV/omnetpp ${CROWNET_OPP_CONT_TAG} exec \"source setenv && make makefiles\""
+    - "../$RV/omnetpp ${CROWNET_OPP_CONT_TAG} exec \"source setenv && make -j16 MODE=${BUILDMODE}\"; TEST_STATUS=${PIPESTATUS[0]}"
     # we do not need the inet sources anymore - delete them to have less artifacts
     - "find . -name \"*.cc\" -type f -delete"
     # build simu5g itself
     - "cd ../simu5g"
-    - "../$RV/omnetpp ${OPPCONTTAG} exec make makefiles"
-    - "../$RV/omnetpp ${OPPCONTTAG} exec make -j16 MODE=${BUILDMODE}"
+    - "../$RV/omnetpp ${CROWNET_OPP_CONT_TAG} exec make makefiles"
+    - "../$RV/omnetpp ${CROWNET_OPP_CONT_TAG} exec make -j16 MODE=${BUILDMODE}"
   artifacts:
     paths:
     # we keep the scripts
@@ -51,7 +51,7 @@ Build:
   stage: test
   script:
     - "cd simu5g/tests/fingerprint/LTE"
-    - "../../../../$RV/omnetpp ${OPPCONTTAG} exec ./fingerprints"
+    - "../../../../$RV/omnetpp ${CROWNET_OPP_CONT_TAG} exec ./fingerprints"
   artifacts:
     paths:
     - simu5g/tests/fingerprint
@@ -62,7 +62,7 @@ Build:
   stage: test
   script:
     - "cd simu5g/tests/fingerprint/NR"
-    - "../../../../$RV/omnetpp ${OPPCONTTAG} exec ./fingerprints"
+    - "../../../../$RV/omnetpp ${CROWNET_OPP_CONT_TAG} exec ./fingerprints"
   artifacts:
     paths:
     - simu5g/tests/fingerprint/NR
@@ -73,7 +73,7 @@ MEC_Fingerprints:
   stage: test
   script:
     - "cd simu5g/tests/fingerprint/mec"
-    - "../../../../$RV/omnetpp ${OPPCONTTAG} exec ./fingerprints"
+    - "../../../../$RV/omnetpp ${CROWNET_OPP_CONT_TAG} exec ./fingerprints"
   artifacts:
     paths:
     - simu5g/tests/fingerprint/mec
