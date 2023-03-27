@@ -7,6 +7,9 @@ variables:
   INETBRANCH: 'v4.4.1'
   BUILDMODE: 'release'
 
+ CROWNET_IMAGE_REG: '${CI_REGISTRY}'
+ CROWNET_IMAGE_BASE: '${CROWNET_IMAGE_REG}/rover/crownet'
+
 stages:
   - build
   - test
