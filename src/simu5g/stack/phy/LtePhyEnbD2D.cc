@@ -125,7 +125,7 @@ void LtePhyEnbD2D::handleAirFrame(cMessage *msg)
     LteAirFrame *frame = static_cast<LteAirFrame *>(msg);
     UserControlInfo *lteInfo = new UserControlInfo(frame->getAdditionalInfo());
 
-    EV << "LtePhyEnbD2D::handleAirFrame - received new LteAirFrame with ID " << frame->getId() << " from channel" << endl;
+    EV << "LtePhyEnbD2D::handleAirFrame - received new LteAirFrame with ID " << frame->getId() << " " << destSrcInfo(lteInfo) << " from channel" << endl;
 
     // Handle broadcast packet sent by another eNB
     if (lteInfo->getFrameType() == BEACONPKT) {

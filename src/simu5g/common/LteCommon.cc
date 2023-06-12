@@ -151,6 +151,12 @@ const std::string dirToA(Direction dir)
     }
 }
 
+const std::string destSrcInfo(UserControlInfo* info){
+    std::stringstream s;
+    s << "[" << info->getSourceId() << "--" << phyFrameTypeToA((LtePhyFrameType)info->getFrameType()) << "-->" << info->getDestId() << "]";
+    return s.str();
+}
+
 const std::string d2dModeToA(LteD2DMode mode)
 {
     switch (mode) {

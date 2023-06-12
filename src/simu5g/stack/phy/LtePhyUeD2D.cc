@@ -65,7 +65,7 @@ void LtePhyUeD2D::handleAirFrame(cMessage *msg)
     LteAirFrame *frame = static_cast<LteAirFrame *>(msg);
     UserControlInfo *lteInfo = new UserControlInfo(frame->getAdditionalInfo());
 
-    EV << "LtePhyUeD2D: received new LteAirFrame with ID " << frame->getId() << " from channel" << endl;
+    EV << "LtePhyUeD2D: UE "<< nodeId_ << " received new LteAirFrame with ID " << frame->getId() << " " << destSrcInfo(lteInfo) << " from channel (servingNodeId " << servingNodeId_ << ")" << endl;
 
     MacNodeId sourceId = lteInfo->getSourceId();
     if (!binder_->nodeExists(sourceId)) {
@@ -292,7 +292,8 @@ void LtePhyUeD2D::handleUpperMessage(cMessage *msg)
     frame->setControlInfo(lteInfo.get()->dup());
 
     EV << "LtePhyUeD2D::handleUpperMessage - " << nodeTypeToA(nodeType_) << " with id " << nodeId_
-       << " sending message to the air channel. Dest=" << lteInfo->getDestId() << endl;
+       << " sending message (LteAirFrame with ID "<< frame->getId() << ", "<< phyFrameTypeToA((LtePhyFrameType)lteInfo->getFrameType()) 
+       <<") to the air channel. Dest=" << lteInfo->getDestId() << endl;
 
     // If this is a multicast/broadcast connection, send the frame to all neighbors in the hearing range.
     // Otherwise, send unicast to the destination.

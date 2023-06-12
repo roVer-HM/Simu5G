@@ -53,6 +53,7 @@ class LteMacEnb;
 class LteMacBase;
 class LtePhyBase;
 class LteRealisticChannelModel;
+class UserControlInfo;
 class LteControlInfo;
 class FlowControlInfo;
 class ExtCell;
@@ -411,6 +412,7 @@ typedef std::map<std::string, cMsgPar> ParameterMap;
 *********************/
 
 const std::string dirToA(Direction dir);
+const std::string destSrcInfo(UserControlInfo* info);
 const std::string d2dModeToA(LteD2DMode mode);
 const std::string allocationTypeToA(RbAllocationType type);
 const std::string modToA(LteMod mod);
