@@ -163,7 +163,8 @@ void LtePhyEnbD2D::handleAirFrame(cMessage* msg)
     UserControlInfo* lteInfo = check_and_cast<UserControlInfo*>(msg->removeControlInfo());
     LteAirFrame* frame = static_cast<LteAirFrame*>(msg);
 
-    EV << "LtePhyEnbD2D::handleAirFrame - received new LteAirFrame with ID " << frame->getId() << " from channel" << endl;
+    EV << "LtePhyEnbD2D::handleAirFrame - received new LteAirFrame with ID " << frame->getId() \
+            << " " << destSrcInfo(lteInfo) << " from channel" << endl;
 
     // handle broadcast packet sent by another eNB
     if (lteInfo->getFrameType() == HANDOVERPKT)
