@@ -376,6 +376,14 @@ OmnetId Binder::getOmnetId(MacNodeId nodeId)
     return 0;
 }
 
+MacNodeId Binder::getMasterNodeId(const MacNodeId& senderId) {
+    LteMacBase* otherMacBase = getMacFromMacNodeId(senderId);
+    if (otherMacBase == nullptr){
+        return 0;
+    }
+    return (MacNodeId)otherMacBase->getMacCellId();
+}
+
 std::map<int, OmnetId>::const_iterator Binder::getNodeIdListBegin()
 {
     return nodeIds_.begin();

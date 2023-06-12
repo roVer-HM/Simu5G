@@ -292,6 +292,12 @@ class Binder : public omnetpp::cSimpleModule
      */
     OmnetId getOmnetId(MacNodeId nodeId);
 
+
+    /**
+     * getMasterNodeId() returns master_id of the sender node
+     */
+    MacNodeId getMasterNodeId(const MacNodeId& senderId);
+
     /*
      * get iterators for the list of nodes
      */
