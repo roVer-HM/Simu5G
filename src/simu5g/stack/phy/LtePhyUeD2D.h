@@ -26,6 +26,10 @@ class LtePhyUeD2D : public LtePhyUe
     // D2D Tx Power
     double d2dTxPower_;
 
+    // Do not allow D2D communication between UE's associated with different base stations.
+    bool d2dEnforceEnbBoundOnSideLink_;
+
+
     /*
      * Capture Effect for D2D Multicast communications
      */

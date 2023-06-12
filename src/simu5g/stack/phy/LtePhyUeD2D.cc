@@ -31,6 +31,7 @@ void LtePhyUeD2D::initialize(int stage)
     if (stage == inet::INITSTAGE_LOCAL) {
         d2dTxPower_ = par("d2dTxPower");
         d2dMulticastEnableCaptureEffect_ = par("d2dMulticastCaptureEffect");
+        d2dEnforceEnbBoundOnSideLink_ = par("d2dEnforceEnbBoundOnSideLink");
     }
 }
 
@@ -154,6 +155,27 @@ void LtePhyUeD2D::handleAirFrame(cMessage *msg)
         delete frame;
         return;
     }
+
+    // CrowNet extension: limit D2D communication to a single resource domain
+    if (d2dEnforceEnbBoundOnSideLink_){
+        // In normal a setup neighboring base stations should have different carrier frequencies and
+        // thus communication between UE's associated with different base stations should not be able to talk
+        // to each other over sidelink. 
+        // Since simu5g currently cannot model handover on different frequencies, this switch allows to limit sidelink
+        // communication to the nodes coordinated by the same master - as a simplfied, worst-case model for communication
+        // on different frequencies.
+
+        // check if sending and receiving node are coordinated by the same master
+        MacNodeId otherServingNodeId = binder_->getServingNodeOrSelf(lteInfo->getSourceId());
+        if (servingNodeId_ != otherServingNodeId){
+            EV << "D2D frame from UE  that is associated with a different base station -> ignore frame" << endl;
+            EV << "Current ServingNodeId: " << servingNodeId_ << " Sender ServingNodeId: " << otherServingNodeId << endl;
+            delete lteInfo;
+            delete frame;
+            return;
+        }
+    }
+
 
     // If the packet is a D2D multicast one, store it and decode it at the end of the TTI.
     if (d2dMulticastEnableCaptureEffect_ && binder_->isInMulticastGroup(nodeId_, lteInfo->getPacketMulticastGroupId())) {
