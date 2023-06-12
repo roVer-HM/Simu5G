@@ -113,6 +113,12 @@ const std::string dirToA(Direction dir)
     }
 }
 
+const std::string destSrcInfo(UserControlInfo* info){
+    std::stringstream s;
+    s << "[" << info->getSourceId() << "--" << phyFrameTypeToA(info->getFrameType()) << "-->" << info->getDestId() << "]";
+    return s.str();
+}
+
 const std::string d2dModeToA(LteD2DMode mode)
 {
     switch (mode)
@@ -270,6 +276,11 @@ Remote aToDas(std::string s)
         i++;
     }
     return UNKNOWN_RU;
+}
+
+const std::string phyFrameTypeToA(const unsigned int r)
+{
+    return phyFrameTypeToA((LtePhyFrameType)r);
 }
 
 const std::string phyFrameTypeToA(const LtePhyFrameType r)

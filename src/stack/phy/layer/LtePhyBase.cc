@@ -156,7 +156,7 @@ void LtePhyBase::handleUpperMessage(cMessage* msg)
     frame->setControlInfo(lteInfo.get()->dup());
 
     EV << "LtePhy: " << nodeTypeToA(nodeType_) << " with id " << nodeId_
-       << " sending message to the air channel. Dest=" << lteInfo->getDestId() << endl;
+       << " sending message (" << phyFrameTypeToA(lteInfo->getFrameType()) << ") to the air channel. Dest=" << lteInfo->getDestId() << endl;
     sendUnicast(frame);
 }
 

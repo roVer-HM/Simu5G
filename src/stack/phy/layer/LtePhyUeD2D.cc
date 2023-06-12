@@ -86,7 +86,8 @@ void LtePhyUeD2D::handleAirFrame(cMessage* msg)
     }
     connectedNodeId_ = masterId_;
     LteAirFrame* frame = check_and_cast<LteAirFrame*>(msg);
-    EV << "LtePhyUeD2D: received new LteAirFrame with ID " << frame->getId() << " from channel" << endl;
+    EV << "LtePhyUeD2D: UE "<< nodeId_ << " received new LteAirFrame with ID " << frame->getId() \
+            << " " << destSrcInfo(lteInfo) << " from channel (masterId " << masterId_ << ")" << endl;
 
     int sourceId = lteInfo->getSourceId();
     if(binder_->getOmnetId(sourceId) == 0 )
@@ -200,6 +201,14 @@ void LtePhyUeD2D::handleAirFrame(cMessage* msg)
             delete frame;
             return;
         }
+    }
+
+
+    if (carrierFreq != primaryChannelModel_->getCarrierFrequency()){
+        EV << "Frame is on wrong carrier-> ignore frame" << endl;
+        delete lteInfo;
+        delete frame;
+        return;
     }
 
     // if the packet is a D2D multicast one, store it and decode it at the end of the TTI
@@ -401,7 +410,7 @@ void LtePhyUeD2D::handleUpperMessage(cMessage* msg)
     frame->setControlInfo(lteInfo.get()->dup());
 
     EV << "LtePhyUeD2D::handleUpperMessage - " << nodeTypeToA(nodeType_) << " with id " << nodeId_
-       << " sending message to the air channel. Dest=" << lteInfo->getDestId() << endl;
+       << " sending message (LteAirFrame with ID "<< frame->getId() << ", "<< phyFrameTypeToA(lteInfo->getFrameType()) <<") to the air channel. Dest=" << lteInfo->getDestId() << endl;
 
     // if this is a multicast/broadcast connection, send the frame to all neighbors in the hearing range
     // otherwise, send unicast to the destination
