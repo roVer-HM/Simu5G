@@ -173,7 +173,9 @@ void LteMacUeD2D::macPduMake(MacCid cid)
                     // Add the created BSR to the PDU List
                     if( macPktBsr != nullptr )
                     {
-                        LteChannelModel* channelModel = phy_->getChannelModel();
+//                        LteChannelModel* channelModel = phy_->getChannelModel();
+                        // do not use the first one!!!
+                        LteChannelModel* channelModel = phy_->getChannelModel(carrierFreq);
                         if (channelModel == NULL)
                             throw cRuntimeError("NRMacUe::macPduMake - channel model is a null pointer. Abort.");
                         else
