@@ -513,6 +513,7 @@ void LtePhyUe::handleAirFrame(cMessage* msg)
     }
     connectedNodeId_ = masterId_;
     LteAirFrame* frame = check_and_cast<LteAirFrame*>(msg);
+    emit(packetReceivedFromPeerSignal, frame, lteInfo);
     EV << "LtePhy: received new LteAirFrame with ID " << frame->getId() << " from channel" << endl;
 
     int sourceId = binder_->getOmnetId(lteInfo->getSourceId());

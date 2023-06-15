@@ -17,6 +17,7 @@
 #include <vector>
 #include <iostream>
 #include <omnetpp.h>
+#include "inet/common/Simsignals.h"
 
 #include "world/radio/ChannelAccess.h"
 #include "world/radio/ChannelControl.h"

@@ -199,6 +199,7 @@ void LtePhyBase::updateDisplayString()
 void LtePhyBase::sendBroadcast(LteAirFrame *airFrame)
 {
     // delegate the ChannelControl to send the airframe
+    emit(packetSentToPeerSignal, airFrame, airFrame->getControlInfo());
     sendToChannel(airFrame);
 }
 
@@ -223,6 +224,8 @@ void LtePhyBase::sendMulticast(LteAirFrame *frame)
     int32_t groupId = ci->getMulticastGroupId();
     if (groupId < 0)
         throw cRuntimeError("LtePhyBase::sendMulticast - Error. Group ID %d is not valid.", groupId);
+
+    emit(packetSentToPeerSignal, frame, ci);
 
     // send the frame to nodes belonging to the multicast group only
     std::map<int, OmnetId>::const_iterator nodeIt = binder_->getNodeIdListBegin();
@@ -290,6 +293,8 @@ void LtePhyBase::sendUnicast(LteAirFrame *frame)
     // get a pointer to receiving module
     cModule *receiver = getSimulation()->getModule(destOmnetId);
 
+    // emit send
+    emit(packetSentToPeerSignal, frame, ci);
     sendDirect(frame, 0, frame->getDuration(), receiver, getReceiverGateIndex(receiver, isNrUe(dest)));
 }
 

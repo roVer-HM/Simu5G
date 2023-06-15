@@ -157,7 +157,7 @@ void LtePhyEnb::handleAirFrame(cMessage* msg)
     }
 
     LteAirFrame* frame = static_cast<LteAirFrame*>(msg);
-
+    emit(packetReceivedFromPeerSignal, frame, lteInfo);
     EV << "LtePhy: received new LteAirFrame with ID " << frame->getId() << " from channel" << endl;
 
     // handle broadcast packet sent by another eNB

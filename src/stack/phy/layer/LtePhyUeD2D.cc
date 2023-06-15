@@ -86,6 +86,7 @@ void LtePhyUeD2D::handleAirFrame(cMessage* msg)
     }
     connectedNodeId_ = masterId_;
     LteAirFrame* frame = check_and_cast<LteAirFrame*>(msg);
+    emit(packetReceivedFromPeerSignal, frame, lteInfo);
     EV << "LtePhyUeD2D: UE "<< nodeId_ << " received new LteAirFrame with ID " << frame->getId() \
             << " " << destSrcInfo(lteInfo) << " from channel (masterId " << masterId_ << ")" << endl;
 

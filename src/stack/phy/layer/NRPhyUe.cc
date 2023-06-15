@@ -52,6 +52,7 @@ void NRPhyUe::handleAirFrame(cMessage* msg)
     }
     connectedNodeId_ = masterId_;
     LteAirFrame* frame = check_and_cast<LteAirFrame*>(msg);
+    emit(packetReceivedFromPeerSignal, frame, lteInfo);
     EV << "NRPhyUe: received new LteAirFrame with ID " << frame->getId() << " from channel" << endl;
 
     int sourceId = lteInfo->getSourceId();
