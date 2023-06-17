@@ -20,6 +20,7 @@ and run INET and Simu5G.
 Install and test INET according to the installation instructions found in the archive.
 Be sure to check if the INET examples are running fine before continuing.
 
+
 Building Simu5G from the IDE
 -----------------------------
 
