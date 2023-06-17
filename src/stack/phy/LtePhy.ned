@@ -59,7 +59,7 @@ simple LtePhyBase like LtePhy {
 simple LtePhyUe extends LtePhyBase {
      parameters:
          @class("LtePhyUe");
-         
+         s
          // if true, get minRssi from PhyPisaData
          bool minRssiDefault = default(true);
          
