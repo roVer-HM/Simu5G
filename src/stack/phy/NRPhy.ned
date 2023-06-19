@@ -20,6 +20,8 @@ import simu5g.stack.phy.LtePhy;
 simple NRPhyUe extends LtePhyUeD2D {
      parameters:
          @class("NRPhyUe");
+         @signal[packetSentToPeer];
+         @signal[packetReceivedFromPeer];
 
 }
 

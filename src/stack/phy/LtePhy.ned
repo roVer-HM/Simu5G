@@ -68,7 +68,8 @@ simple LtePhyUe extends LtePhyBase {
          
          @signal[servingCell];
          @statistic[servingCell](title="ID of the serving eNodeB for the UE"; unit=""; source="servingCell"; record=vector);
-         
+         @signal[packetSentToPeer];
+         @signal[packetReceivedFromPeer];
          //# CQI statistics
          @signal[averageCqiDl];
          @statistic[averageCqiDl](title="Average Cqi reported in DL"; unit="cqi"; source="averageCqiDl"; record=mean,count,vector);
@@ -112,4 +113,6 @@ simple LtePhyEnbD2D extends LtePhyEnb {
     parameters:
         @class("LtePhyEnbD2D");
         bool enableD2DCqiReporting = default(true);
+        @signal[packetSentToPeer];
+        @signal[packetReceivedFromPeer];
 }
