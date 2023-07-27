@@ -40,7 +40,7 @@ class TrafficFlowFilter : public omnetpp::cSimpleModule
     bool fastForwarding_;
 
     // store the name of the gateway node (for MEC Hosts and base stations only)
-    const char* gateway_;
+    char* gateway_;
 
     CoreNodeType selectOwnerType(const char * type);
 
@@ -68,6 +68,8 @@ class TrafficFlowFilter : public omnetpp::cSimpleModule
 
     // functions for managing filter tables
     TrafficFlowTemplateId findTrafficFlow(inet::L3Address srcAddress, inet::L3Address destAddress);
+
+    virtual void finish() override;
 };
 
 #endif

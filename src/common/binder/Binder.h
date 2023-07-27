@@ -34,6 +34,10 @@ class UeStatsCollector;
 class Binder : public omnetpp::cSimpleModule
 {
   private:
+
+    // name of the system (top-level) module
+    std::string networkName_;
+
     typedef std::map<MacNodeId, std::map<MacNodeId, bool> > DeployedUesMap;
 
     std::map<inet::Ipv4Address, MacNodeId> macNodeIdToIPAddress_;
@@ -184,6 +188,11 @@ class Binder : public omnetpp::cSimpleModule
         ueList_.clear();
     }
 
+    std::string& getNetworkName()
+    {
+        return networkName_;
+    }
+
     /**
      * Registers a carrier to the global Binder module
      */
@@ -291,6 +300,12 @@ class Binder : public omnetpp::cSimpleModule
      * @return OmnetId of the module
      */
     OmnetId getOmnetId(MacNodeId nodeId);
+
+
+    /**
+     * getMasterNodeId() returns master_id of the sender node
+     */
+    MacNodeId getMasterNodeId(const MacNodeId& senderId);
 
     /*
      * get iterators for the list of nodes

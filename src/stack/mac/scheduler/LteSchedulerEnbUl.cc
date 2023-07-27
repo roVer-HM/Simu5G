@@ -214,6 +214,7 @@ bool LteSchedulerEnbUl::racschedule(double carrierFrequency, BandLimitVector* ba
     // update available blocks
     unsigned int availableBlocks = numBands - racAllocatedBlocks;
 
+    EV << NOW << " LteSchedulerEnbUl::racschedule racAllocatedBlocks: " << racAllocatedBlocks << " availableBlocks after rac schedule: " << availableBlocks << endl;
     EV << NOW << " LteSchedulerEnbUl::racschedule --------------------::[  END RAC-SCHEDULE  ]::--------------------" << endl;
 
     return (availableBlocks==0);
@@ -654,7 +655,7 @@ LteSchedulerEnbUl::schedulePerAcidRtx(MacNodeId nodeId, double carrierFrequency,
                 // signal end loop - all data have been serviced
                 finish = true;
             }
-            unsigned int servedBlocks = mac_->getAmc()->computeReqRbs(nodeId, b, cw, servedBytes, direction_,carrierFrequency);
+            unsigned int servedBlocks = (servedBytes == 0) ? 0 : 1;
             // update the bytes counter
             toServe -= servedBytes;
             // update the structures
@@ -862,7 +863,7 @@ LteSchedulerEnbUl::schedulePerAcidRtxD2D(MacNodeId destId,MacNodeId senderId, do
                 finish = true;
                 EV << NOW << " LteSchedulerEnbUl::schedulePerAcidRtxD2D ALL DATA HAVE BEEN SERVICED"<< endl;
             }
-            unsigned int servedBlocks = mac_->getAmc()->computeReqRbs(senderId, b, cw, servedBytes, dir,carrierFrequency);
+            unsigned int servedBlocks = (servedBytes == 0) ? 0 : 1;
             // update the bytes counter
             toServe -= servedBytes;
             // update the structures
