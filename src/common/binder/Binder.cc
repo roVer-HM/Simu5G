@@ -266,7 +266,10 @@ void Binder::registerMasterNode(MacNodeId masterId, MacNodeId slaveId)
 void Binder::initialize(int stage)
 {
     if (stage == inet::INITSTAGE_LOCAL)
+    {
         phyPisaData.setBlerShift(par("blerShift"));
+        networkName_ = std::string(getSystemModule()->getName());
+    }
 
     if (stage == inet::INITSTAGE_LAST)
     {
@@ -1258,7 +1261,7 @@ void Binder::addUeCollectorToEnodeB(MacNodeId ue, UeStatsCollector* ueCollector 
     }
 
     // no cell has the UeCollector, add it
-    enb = getParentModule()->getSubmodule(getModuleNameByMacNodeId(cell));
+    enb = getParentModule()->getModuleByPath(getModuleNameByMacNodeId(cell));
     if (enb->getSubmodule("collector") != nullptr)
     {
         enbColl = check_and_cast<BaseStationStatsCollector *>(enb->getSubmodule("collector"));
@@ -1282,7 +1285,7 @@ void Binder::moveUeCollector(MacNodeId ue, MacCellId oldCell, MacCellId newCell)
 
     // get and remove the UeCollector from the OldCell
     const char* cellModuleName = getModuleNameByMacNodeId(oldCell); // eNodeB module name
-    cModule *oldEnb = getParentModule()->getSubmodule(cellModuleName); //  eNobe module
+    cModule *oldEnb = getParentModule()->getModuleByPath(cellModuleName); //  eNobe module
     BaseStationStatsCollector * enbColl = nullptr;
     UeStatsCollector * ueColl = nullptr;
     if (oldEnb->getSubmodule("collector") != nullptr)
