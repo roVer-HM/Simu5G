@@ -39,6 +39,9 @@ simple LtePhyBase like ILtePhy
         string binderModule = default("binder");
         string channelModelModule = default("^.channelModel[0]"); // or "nrChannelModel[0]"
 
+        @signal[macNodeId];
+        @statistic[macNodeId](title="MacNodeId provided at object construction by the Binder"; unit=""; source="macNodeId"; record=last);
+
     gates:
         input upperGateIn;       // from upper layer
         output upperGateOut;    // to upper layer

@@ -24,6 +24,7 @@ short LtePhyBase::airFramePriority_ = 10;
 simsignal_t LtePhyBase::averageCqiDlSignal_ = registerSignal("averageCqiDl");
 simsignal_t LtePhyBase::averageCqiUlSignal_ = registerSignal("averageCqiUl");
 simsignal_t LtePhyBase::averageCqiD2DSignal_ = registerSignal("averageCqiD2D");
+simsignal_t LtePhyBase::macNodeIdSignal_ = registerSignal("macNodeId");
 
 
 void LtePhyBase::initialize(int stage)
@@ -32,6 +33,9 @@ void LtePhyBase::initialize(int stage)
 
     if (stage == inet::INITSTAGE_LOCAL) {
         binder_.reference(this, "binderModule", true);
+
+        macNodeIdSignal_ = registerSignal("macNodeId");
+
         // get gate ids
         upperGateIn_ = findGate("upperGateIn");
         upperGateOut_ = findGate("upperGateOut");

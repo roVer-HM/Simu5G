@@ -128,6 +128,7 @@ class LtePhyBase : public ChannelAccess
     static simsignal_t averageCqiDlSignal_;
     static simsignal_t averageCqiUlSignal_;
     static simsignal_t averageCqiD2DSignal_;
+    static simsignal_t macNodeIdSignal_;
 
     // last time that the node has transmitted (currently, used only by UEs)
     simtime_t lastActive_;

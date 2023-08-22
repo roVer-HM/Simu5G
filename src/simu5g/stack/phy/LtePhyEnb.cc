@@ -38,6 +38,7 @@ void LtePhyEnb::initialize(int stage)
     if (stage == inet::INITSTAGE_LOCAL) {
         // get local id
         nodeId_ = MacNodeId(hostModule->par("macNodeId").intValue());
+        emit(macNodeIdSignal_, (unsigned short) nodeId_);
         EV << "Local MacNodeId: " << nodeId_ << endl;
 
         isNr_ = (std::string(getContainingNicModule(this)->getComponentType()->getName()) == "NrNicEnb");
