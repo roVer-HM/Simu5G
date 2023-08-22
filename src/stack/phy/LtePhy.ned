@@ -19,6 +19,7 @@ moduleinterface LtePhy {
     parameters:
         @display("i=block/wrxtx");
         
+        
     gates:
         input upperGateIn;
         output upperGateOut;
@@ -46,6 +47,9 @@ simple LtePhyBase like LtePhy {
         // TODO move to LtePhyUeD2D module
         bool enableMulticastD2DRangeCheck = default(false);
         double multicastD2DRange @unit(m) = default(1000m);
+        
+        @signal[macNodeId];
+        @statistic[macNodeId](title="MacNodeId provided at object construction by the Binder"; unit=""; source="macNodeId"; record=last);
              
     gates:
         input upperGateIn;       // from upper layer
