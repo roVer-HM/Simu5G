@@ -728,10 +728,10 @@ unsigned int LteAmc::computeBitsOnNRbs(MacNodeId id, Band b, Codeword cw, unsign
         return 0;
 
     // DEBUG
-    EV << NOW << " LteAmc::blocks2bits Node: " << id << "\n";
-    EV << NOW << " LteAmc::blocks2bits Band: " << b << "\n";
-    EV << NOW << " LteAmc::blocks2bits Codeword: " << cw << "\n";
-    EV << NOW << " LteAmc::blocks2bits Direction: " << dirToA(dir) << "\n";
+    EV << NOW << " LteAmc::computeBitsOnNRbs Node: " << id << "\n";
+    EV << NOW << " LteAmc::computeBitsOnNRbs Band: " << b << "\n";
+    EV << NOW << " LteAmc::computeBitsOnNRbs Codeword: " << cw << "\n";
+    EV << NOW << " LteAmc::computeBitsOnNRbs Direction: " << dirToA(dir) << "\n";
 
     // Acquiring current user scheduling information
     UserTxParams info = computeTxParams(id, dir,carrierFrequency);
@@ -739,7 +739,7 @@ unsigned int LteAmc::computeBitsOnNRbs(MacNodeId id, Band b, Codeword cw, unsign
     // if CQI == 0 the UE is out of range, thus return 0
     if (info.readCqiVector().at(cw) == 0)
     {
-        EV << NOW << " LteAmc::blocks2bits - CQI equal to zero, return no blocks available" << endl;
+        EV << NOW << " LteAmc::computeBitsOnNRbs - CQI equal to zero, return no blocks available" << endl;
         return 0;
     }
     unsigned char layers = info.getLayers().at(cw);
@@ -749,45 +749,45 @@ unsigned int LteAmc::computeBitsOnNRbs(MacNodeId id, Band b, Codeword cw, unsign
     unsigned int i = (mod == _QPSK ? 0 : (mod == _16QAM ? 9 : (mod == _64QAM ? 15 : 0)));
 
     // DEBUG
-    EV << NOW << " LteAmc::blocks2bits Modulation: " << modToA(mod) << "\n";
-    EV << NOW << " LteAmc::blocks2bits iTbs: " << iTbs << "\n";
-    EV << NOW << " LteAmc::blocks2bits i: " << i << "\n";
+    EV << NOW << " LteAmc::computeBitsOnNRbs Modulation: " << modToA(mod) << "\n";
+    EV << NOW << " LteAmc::computeBitsOnNRbs iTbs: " << iTbs << "\n";
+    EV << NOW << " LteAmc::computeBitsOnNRbs i: " << i << "\n";
 
     const unsigned int* tbsVect = itbs2tbs(mod, info.readTxMode(), layers, iTbs - i);
 
     // DEBUG
-    EV << NOW << " LteAmc::blocks2bits Resource Blocks: " << blocks << "\n";
-    EV << NOW << " LteAmc::blocks2bits Available space: " << tbsVect[blocks-1] << "\n";
+    EV << NOW << " LteAmc::computeBitsOnNRbs Resource Blocks: " << blocks << "\n";
+    EV << NOW << " LteAmc::computeBitsOnNRbs Available space tbsVect: " << tbsVect[blocks-1] << "bits\n";
 
     return tbsVect[blocks - 1];
 }
 
 unsigned int LteAmc::computeBytesOnNRbs(MacNodeId id, Band b, unsigned int blocks, const Direction dir, double carrierFrequency)
 {
-    EV << NOW << " LteAmc::blocks2bytes Node " << id << ", Band " << b << ", direction " << dirToA(dir) << ", blocks " << blocks << "\n";
+    EV << NOW << " LteAmc::computeBytesOnNRbs Node " << id << ", Band " << b << ", direction " << dirToA(dir) << ", blocks " << blocks << "\n";
 
     unsigned int bits = computeBitsOnNRbs(id, b, blocks, dir, carrierFrequency);
     unsigned int bytes = bits/8;
 
     // DEBUG
-    EV << NOW << " LteAmc::blocks2bytes Resource Blocks: " << blocks << "\n";
-    EV << NOW << " LteAmc::blocks2bytes Available space: " << bits << "\n";
-    EV << NOW << " LteAmc::blocks2bytes Available space: " << bytes << "\n";
+    EV << NOW << " LteAmc::computeBytesOnNRbs Resource Blocks: " << blocks << "\n";
+    EV << NOW << " LteAmc::computeBytesOnNRbs Available space: " << bits << " bits\n";
+    EV << NOW << " LteAmc::computeBytesOnNRbs Available space: " << bytes << " bytes\n";
 
     return bytes;
 }
 
 unsigned int LteAmc::computeBytesOnNRbs(MacNodeId id, Band b, Codeword cw, unsigned int blocks, const Direction dir, double carrierFrequency)
 {
-    EV << NOW << " LteAmc::blocks2bytes Node " << id << ", Band " << b << ", Codeword " << cw << ",  direction " << dirToA(dir) << ", blocks " << blocks << "\n";
+    EV << NOW << " LteAmc::computeBytesOnNRbs Node " << id << ", Band " << b << ", Codeword " << cw << ",  direction " << dirToA(dir) << ", blocks " << blocks << "\n";
 
     unsigned int bits = computeBitsOnNRbs(id, b, cw, blocks, dir, carrierFrequency);
     unsigned int bytes = bits/8;
 
     // DEBUG
-    EV << NOW << " LteAmc::blocks2bytes Resource Blocks: " << blocks << "\n";
-    EV << NOW << " LteAmc::blocks2bits Available space: " << bits << "\n";
-    EV << NOW << " LteAmc::blocks2bytes Available space: " << bytes << "\n";
+    EV << NOW << " LteAmc::computeBytesOnNRbs Resource Blocks: " << blocks << "\n";
+    EV << NOW << " LteAmc::computeBytesOnNRbs Available space: " << bits << " bits\n";
+    EV << NOW << " LteAmc::computeBytesOnNRbs Available space: " << bytes << " bytes\n";
 
     return bytes;
 }
@@ -801,8 +801,8 @@ unsigned int LteAmc::computeBytesOnNRbs_MB(MacNodeId id, Band b, unsigned int bl
 
     // DEBUG
     EV << NOW << " LteAmc::computeBytesOnNRbs_MB Resource Blocks: " << blocks << "\n";
-    EV << NOW << " LteAmc::computeBytesOnNRbs_MB Available space: " << bits << "\n";
-    EV << NOW << " LteAmc::computeBytesOnNRbs_MB Available space: " << bytes << "\n";
+    EV << NOW << " LteAmc::computeBytesOnNRbs_MB Available space: " << bits << " bits\n";
+    EV << NOW << " LteAmc::computeBytesOnNRbs_MB Available space: " << bytes << " bytes\n";
 
     return bytes;
 
