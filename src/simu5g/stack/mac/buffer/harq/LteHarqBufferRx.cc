@@ -125,12 +125,12 @@ std::list<Packet *> LteHarqBufferRx::extractCorrectPdus()
                 macUe_emit(macDelaySignal_[dir], (NOW - pktTemp->getCreationTime()).dbl());
 
                 // Calculate Throughput by sending the number of bits for this packet
-                totalRcvdBytes_ += size;
+                // totalRcvdBytes_ += size;
                 double den = (NOW - getSimulation()->getWarmupPeriod()).dbl();
 
                 // emit throughput statistics
                 if (den > 0)
-                    macUe_emit(macThroughputSignal_[dir], (double)totalRcvdBytes_ / den);
+                    macUe_emit(macThroughputSignal_[dir], (int64_t) size /*(double)totalRcvdBytes_ / den*/);
 
                 macOwner_->dropObj(pktTemp);
                 ret.push_back(pktTemp);

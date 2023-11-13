@@ -116,18 +116,14 @@ std::list<Packet *> LteHarqBufferRxD2D::extractCorrectPdus()
                 else
                     macUe_emit(macDelaySignal_[dir], (NOW - temp->getCreationTime()).dbl()); // TODO `info->getDirection()` and `dir` maybe differs
 
-                // Calculate Throughput by sending the number of bits for this packet
-                totalRcvdBytes_ += size;
-
                 double den = (NOW - getSimulation()->getWarmupPeriod()).dbl();
 
                 // emit throughput statistics
                 if (den > 0) {
-                    double tputSample = (double)totalRcvdBytes_ / den;
                     if (info->getDirection() == D2D)
-                        macUe_emit(macThroughputD2D_, tputSample);
+                        macUe_emit(macThroughputD2D_, (int64_t)size);
                     else
-                        macUe_emit(macThroughputSignal_[dir], tputSample); // TODO `info->getDirection()` and `dir` maybe differs
+                        macUe_emit(macThroughputSignal_[dir], (int64_t)size); // TODO `info->getDirection()` and `dir` maybe differs
                 }
 
                 ret.push_back(temp);

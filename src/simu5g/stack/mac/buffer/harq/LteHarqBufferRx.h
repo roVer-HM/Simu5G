@@ -55,7 +55,7 @@ class LteHarqBufferRx
     bool isMulticast_;
 
     // Statistics
-    unsigned int totalRcvdBytes_ = 0;
+    // unsigned int totalRcvdBytes_ = 0;
     Direction dir = UNKNOWN_DIRECTION;
 
     static simsignal_t macDelaySignal_[2];
