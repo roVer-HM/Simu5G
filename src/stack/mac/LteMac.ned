@@ -62,10 +62,12 @@ simple LteMacBase like LteMac {
         @statistic[macDelayUl](title="Delay at the MAC layer UL"; unit="s"; source="macDelayUl"; record=mean,vector);
         @signal[macThroughputUl];
         @statistic[macThroughputUl](title="Throughput at the MAC layer UL"; unit="Bps"; source="macThroughputUl"; record=mean);
+        
         @signal[macCellThroughputUl];
-        @statistic[macCellThroughputUl](title="Cell Throughput at the MAC layer UL"; unit="Bps"; source="macCellThroughputUl"; record=mean);
+        @statistic[macCellThroughputUl](title="Cell Throughput at the MAC layer UL"; unit="Bps"; source="throughput(macCellThroughputUl)"; record=mean);
         @signal[macCellThroughputDl];
-        @statistic[macCellThroughputDl](title="Cell Throughput at the MAC layer DL"; unit="Bps"; source="macCellThroughputDl"; record=mean);
+        @statistic[macCellThroughputDl](title="Cell Throughput at the MAC layer DL"; unit="Bps"; source="throughput(macCellThroughputDl)"; record=mean);
+        
         @signal[macCellPacketLossDl];
         @statistic[macCellPacketLossDl](title="Mac Cell Packet Loss Dl"; unit=""; source="macCellPacketLossDl"; record=mean);
         @signal[macCellPacketLossUl];
@@ -276,7 +278,7 @@ simple LteMacEnbD2D extends LteMacEnb
         bool msClearRlcBuffer = default(true);
         
         @signal[macCellThroughputD2D];
-        @statistic[macCellThroughputD2D](title="Cell Throughput at the MAC layer D2D"; unit="Bps"; source="macCellThroughputD2D"; record=mean); 
+        @statistic[macCellThroughputD2D](title="Cell Throughput at the MAC layer D2D"; unit="Bps"; source="throughput(macCellThroughputD2D)"; record=mean); 
         @signal[macCellPacketLossD2D];
         @statistic[macCellPacketLossD2D](title="Mac Cell Packet Loss D2D"; unit=""; source="macCellPacketLossD2D"; record=mean);
 }

@@ -164,25 +164,25 @@ std::list<Packet *> LteHarqBufferRxD2D::extractCorrectPdus()
 
                 // Calculate Throughput by sending the number of bits for this packet
                 totalRcvdBytes_ += size;
-                totalCellRcvdBytes_ += size;
 
                 double den = (NOW - getSimulation()->getWarmupPeriod()).dbl();
 
                 double tputSample = (double)totalRcvdBytes_ / den;
-                double cellTputSample = (double)totalCellRcvdBytes_ / den;
 
                 // emit throughput statistics
                 if (info->getDirection() == D2D)
                 {
                     if (den > 0)
-                        check_and_cast<LteMacEnbD2D*>(nodeB_)->emit(macCellThroughputD2D_, cellTputSample);
+                        check_and_cast<LteMacEnbD2D*>(nodeB_)->emit(macCellThroughputD2D_, (int64_t)size);
                     if (den > 0)
                         check_and_cast<LteMacUeD2D*>(macOwner_)->emit(macThroughputD2D_, tputSample);
                 }
                 else
                 {
-                    if (den > 0)
-                        nodeB_->emit(macCellThroughput_, cellTputSample);
+                    if (den > 0){
+                        nodeB_->emit(macCellThroughput_, (int64_t)size);
+                    }
+
 
                     if (den > 0)
                     {

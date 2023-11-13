@@ -16,8 +16,6 @@
 #include "stack/mac/layer/LteMacBase.h"
 #include "stack/mac/layer/LteMacEnb.h"
 
-unsigned int LteHarqBufferRx::totalCellRcvdBytes_ = 0;
-
 using namespace omnetpp;
 
 LteHarqBufferRx::LteHarqBufferRx(unsigned int num, LteMacBase *owner,
@@ -146,15 +144,13 @@ std::list<Packet *> LteHarqBufferRx::extractCorrectPdus()
 
                 // Calculate Throughput by sending the number of bits for this packet
                 totalCellRcvdBytes_ += size;
-                totalRcvdBytes_ += size;
                 double den = (NOW - getSimulation()->getWarmupPeriod()).dbl();
 
                 double tputSample = (double)totalRcvdBytes_ / den;
-                double cellTputSample = (double)totalCellRcvdBytes_ / den;
 
                 // emit throughput statistics
                 if (den > 0)
-                    nodeB_->emit(macCellThroughput_, cellTputSample);
+                    nodeB_->emit(macCellThroughput_, (int64_t)size);
 
                 if (den > 0)
                 {
