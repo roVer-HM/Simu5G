@@ -143,7 +143,7 @@ std::list<Packet *> LteHarqBufferRx::extractCorrectPdus()
                 macUe_->emit(macDelay_, (NOW - pktTemp->getCreationTime()).dbl());
 
                 // Calculate Throughput by sending the number of bits for this packet
-                totalCellRcvdBytes_ += size;
+//                totalCellRcvdBytes_ += size;
                 double den = (NOW - getSimulation()->getWarmupPeriod()).dbl();
 
                 double tputSample = (double)totalRcvdBytes_ / den;
