@@ -46,8 +46,9 @@ void AmRxQueue::initialize()
     ackReportInterval_ = par("ackReportInterval");
     statusReportInterval_ = par("statusReportInterval");
 
-    discarded_.resize(rxWindowDesc_.windowSize_);
-    received_.resize(rxWindowDesc_.windowSize_);
+    discarded_.resize(rxWindowDesc_.windowSize_, false);
+    received_.resize(rxWindowDesc_.windowSize_, false);
+
     totalRcvdBytes_ = 0;
 
     lteRlc_ = check_and_cast<LteRlcAm *>(getParentModule()->getSubmodule("am"));
@@ -166,6 +167,10 @@ void AmRxQueue::discard(const int sn)
                     ++it;
                 }
             }
+            // reset status information for index i
+            received_.at(i) = false;
+            discarded_.at(i) = false;
+            // finally delete packet and update counter of discarded packets
             delete pkt;
             ++discarded;
         }
@@ -731,6 +736,8 @@ void AmRxQueue::moveRxWindow(const int seqNum)
         {
 
             auto pktPdu = check_and_cast<Packet *>(pduBuffer_.remove(i));
+            received_.at(i) = false;
+            discarded_.at(i) = false;
             auto pdu = pktPdu->peekAtFront<LteRlcAmPdu>();
             currentSdu = (pdu->getSnoMainPacket());
 
@@ -762,10 +769,7 @@ void AmRxQueue::moveRxWindow(const int seqNum)
         {
             pduBuffer_.addAt(i-pos, pduBuffer_.remove(i));
         }
-        else
-        {
-            pduBuffer_.remove(i);
-        }
+
         received_.at(i-pos) = received_.at(i);
         discarded_.at(i-pos) = discarded_.at(i);
         received_.at(i) = false;
