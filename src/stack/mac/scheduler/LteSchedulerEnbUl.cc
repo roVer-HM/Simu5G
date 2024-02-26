@@ -1037,7 +1037,6 @@ LteSchedulerEnbUl::scheduleBgRtx(MacNodeId bgUeId, double carrierFrequency, Code
 
             // record the allocation
             unsigned int size = assignedBlocks.size();
-            unsigned int cwAllocatedBlocks =0;
             unsigned int allocatedBytes = 0;
             for(unsigned int i = 0; i < size; ++i)
             {
@@ -1047,7 +1046,6 @@ LteSchedulerEnbUl::scheduleBgRtx(MacNodeId bgUeId, double carrierFrequency, Code
                 Band b = bandLim->at(i).band_;
 
                 allocatedBytes += assignedBytes.at(i);
-                cwAllocatedBlocks +=assignedBlocks.at(i);
                 allocatedRbMapEntry[i] += assignedBlocks.at(i);
 
                 EV << "\t Cw->" << allocatedCw << "/" << MAX_CODEWORDS << endl;

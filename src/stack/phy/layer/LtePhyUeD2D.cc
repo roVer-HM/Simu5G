@@ -178,8 +178,8 @@ void LtePhyUeD2D::handleAirFrame(cMessage* msg)
     // this is a DATA packet
 
     if (masterId_ == 0){
-        // UE is not associated with any eNB/gNB and all harqBuffers are already deleted.
-        // Handing these to the MAC layer will lead to null pointers.
+        // UE is not (anymore) associated with any eNB/gNB and all harqBuffers are already deleted.
+        // Handing this data packet to the MAC layer will lead to null pointers.
         EV << "LtePhyUeD2D: UE "<< nodeId_ << " received data packet while not associated to any base station. (masterId " << masterId_ << "). Drop it." << endl;
         delete lteInfo;
         delete frame;
