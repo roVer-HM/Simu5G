@@ -178,14 +178,20 @@ void LtePhyUeD2D::handleAirFrame(cMessage* msg)
     // this is a DATA packet
 
     if (masterId_ == 0){
+<<<<<<< HEAD
         // UE is not associated with any eNB/gNB and all harqBuffers are already deleted.
         // Handing these to the MAC layer will lead to null pointers.
+=======
+        // UE is not (anymore) associated with any eNB/gNB and all harqBuffers are already deleted.
+        // Handing this data packet to the MAC layer will lead to null pointers.
+>>>>>>> 280abaf4518537ff14ab1e4b799b31d61283ec7e
         EV << "LtePhyUeD2D: UE "<< nodeId_ << " received data packet while not associated to any base station. (masterId " << masterId_ << "). Drop it." << endl;
         delete lteInfo;
         delete frame;
         return;
     }
 
+<<<<<<< HEAD
     if (d2dEnforceEnbBoundOnSideLink){
         // In normal a setup neighboring base stations should have different carrier frequencies and
         // thus communication between UE's associated with different eNB's should not be able to talk
@@ -211,6 +217,8 @@ void LtePhyUeD2D::handleAirFrame(cMessage* msg)
         return;
     }
 
+=======
+>>>>>>> 280abaf4518537ff14ab1e4b799b31d61283ec7e
     // if the packet is a D2D multicast one, store it and decode it at the end of the TTI
     if (d2dMulticastEnableCaptureEffect_ && binder_->isInMulticastGroup(nodeId_,lteInfo->getMulticastGroupId()))
     {
