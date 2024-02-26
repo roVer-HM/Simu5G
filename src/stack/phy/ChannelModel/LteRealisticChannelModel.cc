@@ -37,7 +37,6 @@ simsignal_t LteRealisticChannelModel::rcvdSinrD2D_ = registerSignal("rcvdSinrD2D
 
 simsignal_t LteRealisticChannelModel::measuredSinrDl_ = registerSignal("measuredSinrDl");
 simsignal_t LteRealisticChannelModel::measuredSinrUl_ = registerSignal("measuredSinrUl");
-simsignal_t LteRealisticChannelModel::distance_ = registerSignal("distance");
 
 void LteRealisticChannelModel::initialize(int stage)
 {
@@ -133,9 +132,6 @@ double LteRealisticChannelModel::getAttenuation(MacNodeId nodeId, Direction dir,
    {
        computeLosProbability(sqrDistance, nodeId);
    }
-
-   if(dir == DL)
-       emit(distance_,sqrDistance);
 
    //compute attenuation based on selected scenario and based on LOS or NLOS
    bool los = losMap_[nodeId];
