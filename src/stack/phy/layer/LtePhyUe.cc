@@ -27,6 +27,7 @@ LtePhyUe::LtePhyUe()
     cqiDlSum_ = cqiUlSum_ = 0;
     cqiDlCount_ = cqiUlCount_ = 0;
     masterId_ = 0;
+    masterMobility_ = nullptr;
 }
 
 LtePhyUe::~LtePhyUe()

@@ -313,6 +313,8 @@ void LteRlcUm::initialize(int stage)
         receivedPacketFromLowerLayer = registerSignal("receivedPacketFromLowerLayer");
         sentPacketToUpperLayer = registerSignal("sentPacketToUpperLayer");
         sentPacketToLowerLayer = registerSignal("sentPacketToLowerLayer");
+        rlcPacketLossDl = registerSignal("rlcPacketLossDl");
+        rlcPacketLossUl = registerSignal("rlcPacketLossUl");
 
         WATCH_MAP(txEntities_);
         WATCH_MAP(rxEntities_);
