@@ -1,7 +1,7 @@
 # workingdir,                        args,                                          simtimelimit,    fingerprint
-/simulations/LTE/d2d/,              -f omnetpp.ini -c SinglePair-UDP-D2D -r 0,              5s,         4ed7-9d2d/tls, PASS,
-/simulations/LTE/d2d/,              -f omnetpp.ini -c SinglePair-UDP-Infra -r 0,            5s,         e836-d823/tls, PASS,
-/simulations/LTE/d2d/,              -f omnetpp.ini -c MultiplePairs-UDP-D2D -r 0,           5s,         8766-cc33/tls, PASS,
-/simulations/LTE/d2d/,              -f omnetpp.ini -c MultiplePairs-UDP-Infra -r 0,         5s,         f6de-3842/tls, PASS,
-/simulations/LTE/d2d/,              -f omnetpp.ini -c MultiplePairs-UDP-D2D-wReuse -r 0,    5s,         3822-1b4f/tls, PASS,
+/simulations/LTE/d2d/,              -f omnetpp.ini -c SinglePair-UDP-D2D -r 0,              5s,         684b-4759/tls, PASS,
+/simulations/LTE/d2d/,              -f omnetpp.ini -c SinglePair-UDP-Infra -r 0,            5s,         1f34-3631/tls, PASS,
+/simulations/LTE/d2d/,              -f omnetpp.ini -c MultiplePairs-UDP-D2D -r 0,           5s,         0391-9d9c/tls, PASS,
+/simulations/LTE/d2d/,              -f omnetpp.ini -c MultiplePairs-UDP-Infra -r 0,         5s,         a684-50ab/tls, PASS,
+/simulations/LTE/d2d/,              -f omnetpp.ini -c MultiplePairs-UDP-D2D-wReuse -r 0,    5s,         84e0-ec7c/tls, PASS,
 
