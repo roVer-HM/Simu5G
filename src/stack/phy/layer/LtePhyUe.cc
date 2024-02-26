@@ -26,8 +26,8 @@ LtePhyUe::LtePhyUe()
     handoverTrigger_ = nullptr;
     cqiDlSum_ = cqiUlSum_ = 0;
     cqiDlCount_ = cqiUlCount_ = 0;
-    masterId_ = 0;
     masterMobility_ = nullptr;
+    masterId_ = 0;
 }
 
 LtePhyUe::~LtePhyUe()
