@@ -899,7 +899,6 @@ void Binder::computeAverageCqiForBackgroundUes()
             // Compute the SINR for each UE within the cell
             auto bgUes_it = bgTrafficManager->getBgUesBegin();
             auto bgUes_et = bgTrafficManager->getBgUesEnd();
-            int cont = 0;
             while (bgUes_it != bgUes_et)
             {
                 TrafficGeneratorBase* bgUe = *bgUes_it;
@@ -956,7 +955,6 @@ void Binder::computeAverageCqiForBackgroundUes()
                 }
 
                 ++bgUes_it;
-                ++cont;
             }
 
             // update allocation elem for this background traffic manager
