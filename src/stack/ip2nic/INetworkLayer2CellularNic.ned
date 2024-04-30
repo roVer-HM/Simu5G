@@ -13,15 +13,16 @@ package simu5g.stack.ip2nic;
 //
 // INetworkLayer2CellularNic performs as a bridge between the network layer and the LTE/NR protocol stack
 //
-moduleinterface INetworkLayer2CellularNic {
+moduleinterface INetworkLayer2CellularNic
+{
     parameters:
-        string nodeType;    
+        string nodeType;
         string interfaceTableModule;
         string routingTableModule;
         @display("i=block/layer");
     gates:
         // connection to network layer.
-        // These gate names are recognized by the network layer (same as the ones in the INetworkInterface interface) 
+        // These gate names are recognized by the network layer (same as the ones in the INetworkInterface interface)
         input upperLayerIn;
         output upperLayerOut;
 
