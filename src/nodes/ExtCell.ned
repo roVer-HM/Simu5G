@@ -25,13 +25,13 @@ simple ExtCell
         double position_z @unit("m") = default(0m);
 
         // transmission power
-        double txPower = default(46);
+        double txPower @unit(dBm) = default(46dBm);
 
         // transmission direction
         string txDirection = default("OMNI");
 
         // transmission angle
-        double txAngle = default(0);
+        double txAngle @unit(deg) = default(0deg);
 
         // operating carrier
         double carrierFrequency @unit(GHz) = default(2GHz);

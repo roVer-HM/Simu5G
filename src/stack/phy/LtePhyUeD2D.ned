@@ -19,7 +19,7 @@ simple LtePhyUeD2D extends LtePhyUe
 {
     parameters:
         @class("LtePhyUeD2D");
-        double d2dTxPower = default(26);
+        double d2dTxPower @unit(dBm) = default(26dBm);
         bool d2dMulticastCaptureEffect = default(true);
         string d2dMulticastCaptureEffectFactor = default("RSRP");  // or distance
         bool d2dEnforceEnbBoundOnSideLink = default(false);        // Do not allow D2D communication between UE's associated with different eNB's.

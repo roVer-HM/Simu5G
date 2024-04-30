@@ -19,11 +19,11 @@ simple LtePhyBase like LtePhy
 {
     parameters:
         @display("i=block/wrxtx");
-        double ueTxPower = default(26);
-        double eNodeBTxPower = default(46);
-        double microTxPower = default(30);
+        double ueTxPower @unit(dBm) = default(26dBm);
+        double eNodeBTxPower @unit(dBm) = default(46dBm);
+        double microTxPower @unit(dBm) = default(30dBm);
         string txDirection = default("OMNI");
-        double txAngle = default(0);
+        double txAngle @unit(deg) = default(0deg);
 
         bool dynamicCellAssociation = default(false);
 

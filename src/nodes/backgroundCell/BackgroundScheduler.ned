@@ -21,13 +21,13 @@ simple BackgroundScheduler
         @class("BackgroundScheduler");
 
         // transmission power
-        double txPower = default(46);
+        double txPower @unit(dBm) = default(46dBm);
 
         // transmission direction
         string txDirection = default("OMNI");
 
         // transmission angle
-        double txAngle = default(0);
+        double txAngle @unit(deg) = default(0deg);
 
         // flag to indicate whether this is a NR base station
         bool isNr = default(false);
