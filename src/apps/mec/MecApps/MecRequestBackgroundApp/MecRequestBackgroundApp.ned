@@ -20,31 +20,31 @@ simple MecRequestBackgroundApp like IMECApp, IApp
 
         int numberOfApplications = default(1);
         bool allocateHostResources = default(false);
-        
+
         int packetSize = default(10);
         string interfaceTableModule = default("");
-        
-        int mecAppIndex = default(0); 
+
+        int mecAppIndex = default(0);
         int mecAppId = default(0); // it will be override by getId() in initialize
         int localUePort = default(0); // not used in MecRequestBackgroundGeneratorApp
-        
+
         string mp1Address = default("");
         int mp1Port = default(10021);
-        
+
         double lambda @unit(s) = default(10ms);
-        
+
 		 //resource required info
         double requiredRam @unit("B") = default(10MB);
         double requiredDisk @unit("B") = default(100MB);
         double requiredCpu = default(15000);
 
-		// IApp parameters
-		int timeToLive = default(-1); // if not -1, set the TTL (IPv4) or Hop Limit (IPv6) field of sent packets to this value
+        // IApp parameters
+        int timeToLive = default(-1); // if not -1, set the TTL (IPv4) or Hop Limit (IPv6) field of sent packets to this value
         int dscp = default(-1); // if not -1, set the DSCP (IPv4/IPv6) field of sent packets to this value
         int tos = default(-1); // if not -1, set the Type Of Service (IPv4) / Traffic Class (IPv6) field of sent packets to this value
-		
-		bool logger = default(false);    
-		
+
+        bool logger = default(false);
+
         string localAddress = default(""); // may be left empty ("")
         int localPort = default(-1); // port number to listen on
         string connectAddress = default("");  // server address (may be symbolic)
@@ -56,13 +56,13 @@ simple MecRequestBackgroundApp like IMECApp, IApp
         @lifecycleSupport;
         double stopOperationExtraTime @unit(s) = default(-1s);    // extra time after lifecycle stop operation finished
         double stopOperationTimeout @unit(s) = default(2s);    // timeout value for lifecycle stop operation
-       
- 
+
+
     gates:
         input socketIn @labels(TcpCommand/up);
         output socketOut @labels(TcpCommand/down);
-        
-        	  input mePlatformIn;
-	  output mePlatformOut;
-        
+
+        input mePlatformIn;
+        output mePlatformOut;
+
 }

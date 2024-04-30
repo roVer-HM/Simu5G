@@ -1,13 +1,13 @@
-// 
+//
 //                  Simu5G
 //
 // Authors: Giovanni Nardini, Giovanni Stea, Antonio Virdis (University of Pisa)
-// 
+//
 // This file is part of a software released under the license included in file
 // "license.pdf". Please read LICENSE and README files before using it.
-// The above files and the present reference are part of the software itself, 
+// The above files and the present reference are part of the software itself,
 // and cannot be removed from it.
-// 
+//
 
 
 package simu5g.stack;
@@ -21,19 +21,6 @@ import simu5g.stack.phy.feedback.LteDlFeedbackGenerator;
 import simu5g.stack.packetFlowManager.PacketFlowManager;
 
 //
-// e/gNodeB with NR stack
-//
-module NRNicEnb extends LteNicEnbD2D
-{
-    parameters:
-        LtePdcpRrcType = default("NRPdcpRrcEnb");
-        LteMacType = default("NRMacGnb");
-        LteChannelModelType = default("NRChannelModel_3GPP38_901");
-        @display("bgb=694,443");
-        PacketFlowManagerType = default("NRPacketFlowManagerGnb");
-}
-
-//
 // UE with LTE+NR stack
 //
 module NRNicUe extends LteNicUeD2D
@@ -44,15 +31,15 @@ module NRNicUe extends LteNicUeD2D
         string NRChannelModelType = default("NRChannelModel_3GPP38_901");
 
         PacketFlowManagerType = default("PacketFlowManagerUe");
-        
+
         string NRPacketFlowManagerType = default("NRPacketFlowManagerUe");
-      
+
         int numNRCarriers = default(1);
 
         LtePdcpRrcType = default("NRPdcpRrcUe");
         LtePhyType = default("NRPhyUe");	        // TODO fix this
-        											// LtePhy is of type NRPhyUe so that it is 
-        											// be aware of the existing of the second 
+        											// LtePhy is of type NRPhyUe so that it is
+        											// be aware of the existing of the second
         											// PHY layer (needed at handover)
 
         @display("bgb=694,443");
@@ -73,7 +60,7 @@ module NRNicUe extends LteNicUeD2D
             @display("p=466,389");
             @class(LtePhyType);
         }
-        // NR Channel Model 
+        // NR Channel Model
         nrChannelModel[numNRCarriers]: <NRChannelModelType> like LteChannelModelInterface {
             @display("p=232,389");
         }

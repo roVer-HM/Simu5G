@@ -35,10 +35,10 @@ module UALCMP
         //# Node specs
         string nodeType = "MECOrchestrator";						// DO NOT CHANGE
         string gateway = default("upf");
-        
-        // hostname of the reference orchestrator                
+
+        // hostname of the reference orchestrator
         string mecOrchestratorHostname = default("mecOrchestrator");
-        
+
         bool hasIpv4 = default(true);
         bool hasIpv6 = default(false);
         *.interfaceTableModule = default(absPath(".interfaceTable"));
@@ -122,9 +122,9 @@ module UALCMP
 
     connections allowunconnected:
 
-        //# 
+        //#
         //# UALCMP to transport layer connections
-        //#        
+        //#
         ualcmpApp.socketOut --> at.in++;
         ualcmpApp.socketIn <-- at.out++;
 
@@ -138,7 +138,7 @@ module UALCMP
         at.in++ <-- tcp.appOut;
 
 
-        //# 
+        //#
         //# Transport layer to network layer connections
         //#
         udp.ipOut --> tn.in++;
@@ -165,7 +165,7 @@ module UALCMP
         //            pppIf[i].upperLayerIn <-- nl.out++;
         //            pppIf[i].phys <--> gtpEndpoint.pppg++;
         //        }
-        
+
         pppIf.upperLayerOut --> nl.in++;
         pppIf.upperLayerIn <-- nl.out++;
         pppIf.phys <--> ppp++;
