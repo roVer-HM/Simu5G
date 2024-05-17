@@ -31,8 +31,6 @@ void LtePhyBase::initialize(int stage)
 
     if (stage == inet::INITSTAGE_LOCAL)
     {
-        macNodeIdSignal_ = registerSignal("macNodeId");
-
         binder_ = getBinder();
         cellInfo_ = nullptr;
         // get gate ids
