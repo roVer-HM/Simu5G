@@ -51,6 +51,7 @@ void LtePhyEnb::initialize(int stage)
     {
         // get local id
         nodeId_ = getAncestorPar("macNodeId");
+        emit(macNodeIdSignal_, nodeId_);
         EV << "Local MacNodeId: " << nodeId_ << endl;
         cellInfo_ = getCellInfo(nodeId_);
         if (cellInfo_ != NULL)
