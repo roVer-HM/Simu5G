@@ -20,11 +20,13 @@
 #include "stack/pdcp_rrc/layer/LtePdcpRrc.h"
 #include "stack/packetFlowManager/PacketFlowManagerBase.h"
 
+namespace simu5g {
+
 /*
  * This module is responsible for keep trace of all PDCP SDUs.
  * A PDCP SDU passes the following state while it is going down
  * through the LTE NIC layers:
- * 
+ *
  * PDCP SDU
  * few operations
  * PDCP PDU
@@ -35,11 +37,11 @@
  * MAC PDU (aka TB)
  *
  * Each PDCP has its own seq number, managed by the corresponding LCID
- * 
+ *
  * The main functions of this module are:
  *  - detect PDCP SDU discarded (no part transmitted)
  *  - calculate the delay time of a pkt, from PDCP SDU to last Harq ACK of the
- *    corresponding seq number.  
+ *    corresponding seq number.
  */
 
 class LteRlcUmDataPdu;
@@ -48,23 +50,19 @@ class PacketFlowManagerEnb : public PacketFlowManagerBase
 {
     protected:
 
-        typedef struct
-        {
+        struct Grant {
            unsigned int grantId;
            simtime_t sendTimestamp;
+        };
 
-        }Grant;
-
-        typedef struct
-        {
+        struct BurstStatus {
             std::map<unsigned int, unsigned int> rlcPdu; // RLC PDU of the burst and the relative Rlc sdu size
             simtime_t startBurstTransmission; // instant of the first trasmission of the burst
             unsigned int burstSize; // PDCP sdu size of the burst
             bool isComplited;
-        } BurstStatus;
+        };
 
-        struct PacketLoss
-        {
+        struct PacketLoss {
             int lastPdpcSno;
             int totalLossPdcp;
             unsigned int totalPdcpArrived;
@@ -92,8 +90,7 @@ class PacketFlowManagerEnb : public PacketFlowManagerBase
         * The node can have different active connections (lcid) at the same time, hence we need to
         * maintain the status for each of them
         */
-        typedef struct
-        {
+        struct StatusDescriptor {
             MacNodeId nodeId_; // dest node of this lcid
             bool burstState_; // control variable that controls one burst active at a time
             BurstId burstId_; // separates the bursts
@@ -103,7 +100,7 @@ class PacketFlowManagerEnb : public PacketFlowManagerBase
             std::map<unsigned int, SequenceNumberSet> rlcSdusPerPdu_;  // for each RLC PDU, stores the included RLC SDUs
             std::map<unsigned int, SequenceNumberSet> macSdusPerPdu_;  // for each MAC PDU, stores the included MAC SDUs (should be a 1:1 association)
             //std::vector<unsigned int> macPduPerProcess_;               // for each HARQ process, stores the included MAC PDU
-        } StatusDescriptor;
+        };
 
         typedef  std::map<LogicalCid, StatusDescriptor> ConnectionMap;
         ConnectionMap connectionMap_; // lcid to the corresponding StatusDescriptor
@@ -250,4 +247,7 @@ class PacketFlowManagerEnb : public PacketFlowManagerBase
         virtual ~PacketFlowManagerEnb();
         virtual void finish() override;
 };
+
+} //namespace
+
 #endif

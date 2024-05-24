@@ -9,6 +9,8 @@
 // and cannot be removed from it.
 //
 
+namespace simu5g;
+
 /// Link Directions
 enum Direction
 {
@@ -270,6 +272,3 @@ enum EnbType
     // micro eNb
     MICRO_ENB = 1;
 };
-
-
-

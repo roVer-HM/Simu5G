@@ -9,13 +9,17 @@
 // and cannot be removed from it.
 //
 
+#include "common/utils/utils.h"
 #include "nodes/mec/MECPlatform/MECServices/RNIService/resources/MeasRepUeSubscription.h"
 #include <iostream>
+
+namespace simu5g {
 
 using namespace omnetpp;
 
 MeasRepUeSubscription::MeasRepUeSubscription() :SubscriptionBase() {};
-MeasRepUeSubscription::MeasRepUeSubscription(unsigned int subId, inet::TcpSocket *socket, const std::string& baseResLocation,  std::set<cModule*>& eNodeBs):
+MeasRepUeSubscription::MeasRepUeSubscription(unsigned int subId, inet::TcpSocket *socket, const std::string& baseResLocation,
+        std::set<cModule*, simu5g::utils::cModule_LessId>& eNodeBs) :
         SubscriptionBase(subId,socket,baseResLocation, eNodeBs){};
 MeasRepUeSubscription:: ~MeasRepUeSubscription(){};
 
@@ -173,5 +177,5 @@ void MeasRepUeSubscription::sendSubscriptionResponse(){
 }
 void MeasRepUeSubscription::sendNotification(EventNotification *event){}
 
-
+} //namespace
 

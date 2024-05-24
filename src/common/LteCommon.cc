@@ -21,6 +21,8 @@
 #include "x2/packet/X2ControlInfo_m.h"
 #include "corenetwork/trafficFlowFilter/TftControlInfo_m.h"
 
+namespace simu5g {
+
 using namespace inet;
 
 const inet::Protocol LteProtocol::ipv4uu("ipv4uu", "IPv4 (LTE Uu link)");
@@ -708,4 +710,6 @@ void removeAllSimu5GTags(inet::Packet *pkt)
     pkt->removeTagIfPresent<UserControlInfo>();
     pkt->removeTagIfPresent<LteControlInfo>();
 }
+
+} //namespace
 

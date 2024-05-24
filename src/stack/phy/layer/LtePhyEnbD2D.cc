@@ -14,6 +14,8 @@
 #include "common/LteCommon.h"
 #include "stack/phy/das/DasFilter.h"
 
+namespace simu5g {
+
 Define_Module(LtePhyEnbD2D);
 
 using namespace omnetpp;
@@ -295,4 +297,6 @@ void LtePhyEnbD2D::handleAirFrame(cMessage* msg)
     if (getEnvir()->isGUI())
         updateDisplayString();
 }
+
+} //namespace
 

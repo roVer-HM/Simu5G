@@ -18,6 +18,7 @@
 #include "inet/common/ProtocolGroup.h"
 #include "inet/common/Protocol.h"
 
+namespace simu5g {
 
 using namespace omnetpp;
 using namespace inet;
@@ -45,14 +46,6 @@ MecAppBase::~MecAppBase()
             delete sendTimer;
     }
 
-    // delete all the messages
-    for(auto &sock : sockets_.getMap())
-    {
-
-        TcpSocket* tcpSock = (TcpSocket*)sock.second;
-       // removeSocket(tcpSock);
-    }
-    // it calls delete, too
     sockets_.deleteSockets();
 
     cancelAndDelete(processMessage_);
@@ -327,7 +320,5 @@ void MecAppBase::finish()
 //        mp1Socket_.close();
 }
 
-
-
-
+} //namespace
 

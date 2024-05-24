@@ -2,7 +2,7 @@
 
 #include "common/utils/utils.h"
 
-namespace simu5g{
+namespace simu5g {
 
 namespace utils {
 
@@ -24,6 +24,12 @@ namespace utils {
             splitted.push_back(str.substr(last, next-last)); // last token
         return splitted;
     }
-}
+
+    bool cModule_LessId::operator()(const omnetpp::cModule *left, const omnetpp::cModule *right) const
+    {
+        return (left ? left->getId() : -1) < (right ? right->getId() : -1);
+    }
+
 }
 
+} //namespace

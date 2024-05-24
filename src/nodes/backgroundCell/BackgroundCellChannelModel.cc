@@ -15,6 +15,8 @@
 #include "stack/phy/layer/LtePhyUe.h"
 #include "stack/phy/ChannelModel/LteRealisticChannelModel.h"
 
+namespace simu5g {
+
 Define_Module(BackgroundCellChannelModel);
 
 void BackgroundCellChannelModel::initialize(int stage)
@@ -827,14 +829,12 @@ double BackgroundCellChannelModel::getReceivedPower_bgUe(double txPower, inet::C
 {
     double antennaGainTx = 0.0;
     double antennaGainRx = 0.0;
-    double noiseFigure = 0.0;
 
     EV << NOW << " BackgroundCellChannelModel::getReceivedPower_bgUe" << endl;
 
     //===================== PARAMETERS SETUP ============================
     if (dir == DL)
     {
-        noiseFigure = ueNoiseFigure_; //dB
         antennaGainTx = antennaGainEnB_; //dB
         antennaGainRx = antennaGainUe_;  //dB
     }
@@ -842,7 +842,6 @@ double BackgroundCellChannelModel::getReceivedPower_bgUe(double txPower, inet::C
     {
         antennaGainTx = antennaGainUe_;
         antennaGainRx = antennaGainEnB_;
-        noiseFigure = bsNoiseFigure_;
     }
 
     EV << "BackgroundCellChannelModel::getReceivedPower_bgUe - DIR=" << (( dir==DL )?"DL" : "UL")
@@ -1202,5 +1201,5 @@ bool BackgroundCellChannelModel::computeBackgroundCellInterference(MacNodeId bgU
    return true;
 }
 
-
+} //namespace
 

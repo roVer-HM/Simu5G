@@ -16,20 +16,22 @@
 #include "common/binder/Binder.h"
 #include "CellUEInfo.h"
 
+namespace simu5g {
+
 L2Meas::L2Meas() {
     binder_ = getBinder();
 }
 
-L2Meas::L2Meas(std::set<omnetpp::cModule*>& eNodeBs) {
-	std::set<omnetpp::cModule*>::iterator it = eNodeBs.begin();
+L2Meas::L2Meas(std::set<omnetpp::cModule*, simu5g::utils::cModule_LessId>& eNodeBs) {
+	auto it = eNodeBs.begin();
 	for(; it != eNodeBs.end() ; ++it){
 		BaseStationStatsCollector * collector = check_and_cast<BaseStationStatsCollector *>((*it)->getSubmodule("collector"));
 		eNodeBs_.insert(std::pair<MacCellId, BaseStationStatsCollector *>(collector->getCellId(), collector));
 	}
 }
 
-void L2Meas::addEnodeB(std::set<omnetpp::cModule*>& eNodeBs) {
-    std::set<omnetpp::cModule*>::iterator it = eNodeBs.begin();
+void L2Meas::addEnodeB(std::set<omnetpp::cModule*, simu5g::utils::cModule_LessId>& eNodeBs) {
+    auto it = eNodeBs.begin();
         for(; it != eNodeBs.end() ; ++it){
 			BaseStationStatsCollector * collector = check_and_cast<BaseStationStatsCollector *>((*it)->getSubmodule("collector"));
             eNodeBs_.insert(std::pair<MacCellId, BaseStationStatsCollector*>(collector->getCellId(), collector));
@@ -84,7 +86,7 @@ nlohmann::ordered_json L2Meas::toJson() const {
 	else if(ueArray.size() == 1){
 		val["cellUEInfo"] = ueArray[0];
 	}
-	
+
 	//  l2Meas["L2Meas"] = val;
     //  return l2Meas;
         return val;}
@@ -279,5 +281,8 @@ nlohmann::ordered_json L2Meas::toJson(std::vector<MacCellId>& cellsID, std::vect
 	l2Meas["L2Meas"] = val;
 	return l2Meas;
 
-	
+
 }
+
+} //namespace
+

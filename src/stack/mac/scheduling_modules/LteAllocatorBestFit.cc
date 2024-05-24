@@ -14,6 +14,8 @@
 #include "stack/mac/buffer/LteMacBuffer.h"
 #include "stack/mac/conflict_graph/ConflictGraph.h"
 
+namespace simu5g {
+
 using namespace omnetpp;
 
 LteAllocatorBestFit::LteAllocatorBestFit()
@@ -479,18 +481,14 @@ void LteAllocatorBestFit::prepareSchedule()
                 setAllocationType(bookedBands,SHARED,nodeId);
             }
 
-            double byte_served = 0.0;
-
             // Extract the BSR if an entire BSR is served
             if(blocks == req_RBs)
             {
                 // All the bytes have been served
-                byte_served = conn->front().first;
                 conn->popFront();
             }
             else
             {
-                byte_served = blocks*req_Bytes1RB;
                 conn->front().first -= (blocks*req_Bytes1RB - MAC_HEADER - RLC_HEADER_UM); // Otherwise update the BSR size
             }
         }
@@ -546,3 +544,6 @@ void LteAllocatorBestFit::setAllocationType(std::vector<Band> bookedBands,Alloca
         bandStatusMap_[*it].second.insert(nodeId);
     }
 }
+
+} //namespace
+

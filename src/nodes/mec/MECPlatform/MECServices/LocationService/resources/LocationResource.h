@@ -16,10 +16,13 @@
 #include <set>
 #include <map>
 
+#include "common/utils/utils.h"
 #include "nodes/mec/MECPlatform/MECServices/Resources/TimeStamp.h"
 #include "common/binder/Binder.h"
 #include "inet/networklayer/contract/ipv4/Ipv4Address.h"
 #include "nodes/mec/MECPlatform/MECServices/LocationService/resources/UserInfo.h"
+
+namespace simu5g {
 //#include "inet/common/geometry/common/Coord.h"
 
 using namespace omnetpp;
@@ -34,19 +37,19 @@ class LocationResource : public AttributeBase
 		 * and creates a CellInfo object
 		*/
         LocationResource();
-		LocationResource(std::string& baseUri, std::set<cModule*>& eNodeBs,  Binder* binder);
+		LocationResource(std::string& baseUri, std::set<cModule*, simu5g::utils::cModule_LessId>& eNodeBs,  Binder* binder);
 		virtual ~LocationResource();
 
 		nlohmann::ordered_json toJson() const override;
 
-		void addEnodeB(std::set<cModule*>& eNodeBs);
+		void addEnodeB(std::set<cModule*, simu5g::utils::cModule_LessId>& eNodeBs);
 		void addEnodeB(cModule* eNodeB);
 		void addBinder(Binder* binder);
 		void setBaseUri(const std::string& baseUri);
 		nlohmann::ordered_json toJsonCell(std::vector<MacCellId>& cellsID) const;
 		nlohmann::ordered_json toJsonUe(std::vector<inet::Ipv4Address>& uesID) const;
 		nlohmann::ordered_json toJson(std::vector<MacNodeId>& cellsID, std::vector<inet::Ipv4Address>& uesID) const;
-		
+
 	protected:
 		//better mappa <cellID, Cellinfo>
 		Binder *binder_;
@@ -62,5 +65,6 @@ class LocationResource : public AttributeBase
 
 };
 
+} //namespace
 
 #endif // _LOCATION_H_

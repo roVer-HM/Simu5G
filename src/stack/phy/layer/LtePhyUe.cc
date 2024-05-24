@@ -16,6 +16,8 @@
 #include "stack/phy/packet/LteFeedbackPkt.h"
 #include "stack/phy/feedback/LteDlFeedbackGenerator.h"
 
+namespace simu5g {
+
 Define_Module(LtePhyUe);
 
 using namespace inet;
@@ -926,3 +928,6 @@ void LtePhyUe::finish()
         }
     }
 }
+
+} //namespace
+

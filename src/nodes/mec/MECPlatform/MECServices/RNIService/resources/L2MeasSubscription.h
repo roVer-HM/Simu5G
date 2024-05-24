@@ -12,26 +12,28 @@
 #ifndef APPS_MEC_MESERVICES_RNISERVICE_RESOURCES_L2MEASSUBSCRIPTION_H_
 #define APPS_MEC_MESERVICES_RNISERVICE_RESOURCES_L2MEASSUBSCRIPTION_H_
 
+#include "common/utils/utils.h"
 #include "nodes/mec/MECPlatform/MECServices/Resources/SubscriptionBase.h"
 #include "nodes/mec/MECPlatform/MECServices/RNIService/resources/Ecgi.h"
 #include "nodes/mec/MECPlatform/MECServices/RNIService/resources/AssociateId.h"
 #include "nodes/mec/utils/MecCommon.h"
+
+namespace simu5g {
 
 using namespace omnetpp;
 
 class L2MeasSubscription : public SubscriptionBase
 {
 
-    typedef struct
-    {
+    struct FilterCriteriaL2Meas {
         std::string appIstanceId;
         AssociateId associteId_;
         Ecgi ecgi;
-    }FilterCriteriaL2Meas;
+    };
 
     public:
         L2MeasSubscription();
-        L2MeasSubscription(unsigned int subId, inet::TcpSocket *socket, const std::string& baseResLocation,  std::set<cModule*>& eNodeBs);
+        L2MeasSubscription(unsigned int subId, inet::TcpSocket *socket, const std::string& baseResLocation, std::set<cModule*, simu5g::utils::cModule_LessId>& eNodeBs);
         virtual ~L2MeasSubscription();
         virtual bool fromJson(const nlohmann::ordered_json& json) override;
         virtual void sendSubscriptionResponse() override;
@@ -43,7 +45,6 @@ class L2MeasSubscription : public SubscriptionBase
 
 };
 
-
-
+} //namespace
 
 #endif /* APPS_MEC_MESERVICES_RNISERVICE_RESOURCES_L2MEASSUBSCRIPTION_H_ */

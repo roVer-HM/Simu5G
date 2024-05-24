@@ -11,8 +11,6 @@
 
 package simu5g.stack.backgroundTrafficGenerator.generators;
 
-import inet.mobility.contract.IMobility;
-
 simple TrafficGeneratorBase like ITrafficGenerator
 {
     parameters:
@@ -25,7 +23,7 @@ simple TrafficGeneratorBase like ITrafficGenerator
         //# TODO check parameters
         int headerLen @unit(B) = default(33B);
         double txPower @unit(dBm) = default(26dBm);
-        int fbPeriod = default(6);
+        int fbPeriod @unit(tti) = default(6tti);
 
         volatile double periodDl @unit("s") = default(uniform(10ms,50ms));
         volatile double periodUl @unit("s") = default(uniform(10ms,50ms));

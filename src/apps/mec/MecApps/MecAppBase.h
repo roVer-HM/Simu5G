@@ -26,6 +26,8 @@
 #include "nodes/mec/VirtualisationInfrastructureManager/VirtualisationInfrastructureManager.h"
 #include "nodes/mec/MECPlatform/ServiceRegistry/ServiceRegistry.h"
 
+namespace simu5g {
+
 /*
  * This is a case class for rapidly implementation a MEC app. It is supposed that the MEC app
  * consumes only one MEC service. It manages socket connections, HTTP message parsing and
@@ -42,13 +44,13 @@ class VirtualisationInfrastructureManager;
 class ProcessingTimeMessage;
 class ServiceRegistry;
 
-typedef struct
+struct HttpMessageStatus
 {
     HttpBaseMessage *currentMessage = nullptr;
     std::string bufferedData;
     cQueue httpMessageQueue;
     ProcessingTimeMessage* processMsgTimer;
-} HttpMessageStatus;
+};
 
 class  MecAppBase : public omnetpp::cSimpleModule, public inet::TcpSocket::ICallback
 {
@@ -133,7 +135,6 @@ protected:
 
 };
 
-
-
+} //namespace
 
 #endif /* APPS_MEC_MEAPPS_MECAPPBASE_H_ */

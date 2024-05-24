@@ -22,6 +22,7 @@
 #include "stack/phy/layer/LtePhyUe.h"
 #include "stack/mac/layer/LteMacEnbD2D.h"
 
+namespace simu5g {
 
 // attenuation value to be returned if max. distance of a scenario has been violated
 // and tolerating the maximum distance violation is enabled
@@ -1157,14 +1158,12 @@ double LteRealisticChannelModel::getReceivedPower_bgUe(double txPower, inet::Coo
 {
     double antennaGainTx = 0.0;
     double antennaGainRx = 0.0;
-    double noiseFigure = 0.0;
 
     EV << NOW << " LteRealisticChannelModel::getReceivedPower_bgUe" << endl;
 
     //===================== PARAMETERS SETUP ============================
     if (dir == DL)
     {
-        noiseFigure = ueNoiseFigure_; //dB
         antennaGainTx = antennaGainEnB_; //dB
         antennaGainRx = antennaGainUe_;  //dB
     }
@@ -1172,7 +1171,6 @@ double LteRealisticChannelModel::getReceivedPower_bgUe(double txPower, inet::Coo
     {
         antennaGainTx = antennaGainUe_;
         antennaGainRx = antennaGainEnB_;
-        noiseFigure = bsNoiseFigure_;
     }
 
     EV << "LteRealisticChannelModel::getReceivedPower_bgUe - DIR=" << (( dir==DL )?"DL" : "UL")
@@ -3219,3 +3217,6 @@ bool LteRealisticChannelModel::computeD2DInterference(MacNodeId eNbId, MacNodeId
 
    return true;
 }
+
+} //namespace
+
