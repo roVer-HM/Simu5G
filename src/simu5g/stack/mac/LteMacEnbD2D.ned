@@ -45,6 +45,8 @@ module LteMacEnbD2D extends LteMacEnb
         bool msHarqInterrupt = default(true);
         bool msClearRlcBuffer = default(true);
 
+        @signal[macCellThroughputD2D];
+        @statistic[macCellThroughputD2D](title="Cell Throughput at the MAC layer D2D"; unit="Bps"; source="throughput(macCellThroughputD2D)"; 
         @signal[macCellPacketLossD2D];
         @statistic[macCellPacketLossD2D](title="Mac Cell Packet Loss D2D"; unit=""; source="macCellPacketLossD2D"; record=mean);
 }
