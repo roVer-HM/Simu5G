@@ -37,6 +37,8 @@
 #include "stack/rlc/um/LteRlcUm.h"
 #include "stack/pdcp_rrc/layer/NRPdcpRrcEnb.h"
 
+namespace simu5g {
+
 Define_Module(LteMacEnb);
 
 using namespace omnetpp;
@@ -1036,7 +1038,6 @@ void LteMacEnb::macHandleFeedbackPkt(cPacket *pktAux)
 
     for (it = fbMapDl.begin(); it != fbMapDl.end(); ++it)
     {
-        unsigned int i = 0;
         for (jt = it->begin(); jt != it->end(); ++jt)
         {
             //            TxMode rx=(TxMode)i;
@@ -1044,7 +1045,6 @@ void LteMacEnb::macHandleFeedbackPkt(cPacket *pktAux)
             {
                 amc_->pushFeedback(id, DL, (*jt), lteInfo->getCarrierFrequency());
             }
-            i++;
         }
     }
     for (it = fbMapUl.begin(); it != fbMapUl.end(); ++it)
@@ -1229,4 +1229,6 @@ int LteMacEnb::getActiveUesNumber(Direction dir)
     return activeUeSet.size();
 
 }
+
+} //namespace
 

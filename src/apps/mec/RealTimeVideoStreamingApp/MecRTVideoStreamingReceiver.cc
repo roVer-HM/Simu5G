@@ -23,6 +23,8 @@
 
 #include <fstream>
 
+namespace simu5g {
+
 Define_Module(MecRTVideoStreamingReceiver);
 
 using namespace inet;
@@ -144,9 +146,7 @@ void MecRTVideoStreamingReceiver::handleSelfMessage(cMessage *msg)
 {
     if(strcmp(msg->getName(), "displayFrame") == 0)
     {
-      double percentage = 0.0;
-
-      percentage = playoutFrame();
+        playoutFrame();
 
 //      if(percentage >= correctFrameThreshold && isFirstFrame)
 //      {
@@ -431,4 +431,5 @@ void MecRTVideoStreamingReceiver::processPacket(Packet *packet)
 
 }
 
+} //namespace
 

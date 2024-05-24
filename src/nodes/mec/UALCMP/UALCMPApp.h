@@ -15,6 +15,8 @@
 #include "nodes/mec/MECPlatform/MECServices/MECServiceBase/MecServiceBase.h"
 #include "nodes/mec/utils/httpUtils/json.hpp"
 
+namespace simu5g {
+
 class MecOrchestrator;
 class CreateContextAppMessage;
 class UALCMPMessage;
@@ -38,12 +40,11 @@ class UALCMPApp: public MecServiceBase
     /*
      * structure used to store request information during MEC orchestrator operation
      */
-    typedef struct
-    {
+    struct LcmRequestStatus {
         int connId;    // to retrieve the socket for the response
         unsigned int requestId;
         nlohmann::json appCont; // for POST the app context used in the request is sent back with new fields (according to the result)
-    } LcmRequestStatus;
+    };
 
     bool scheduledSubscription;
     MecOrchestrator *mecOrchestrator_; // reference to the MecOrchestrator used to get AppList
@@ -94,6 +95,8 @@ class UALCMPApp: public MecServiceBase
 
 
 };
+
+} //namespace
 
 #endif //_UALCMPAPP_H
 

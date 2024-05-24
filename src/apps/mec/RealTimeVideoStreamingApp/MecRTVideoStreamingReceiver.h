@@ -24,19 +24,19 @@
 #include "apps/mec/RealTimeVideoStreamingApp/packets/RTVideoStreamingPackets_m.h"
 #include "apps/mec/MecApps/MecAppBase.h"
 
+namespace simu5g {
 
 class MecRTVideoStreamingReceiver : public MecAppBase
 {
 
-    typedef struct
-    {
+    struct ReceivingFrameStatus {
         int frameNumber; // i.e. segment sequence number
         int frameSize;
         int currentSize;
         int numberOfFragments;
         int numberOfFragmentsReceived;
         double playoutTime;
-    } ReceivingFrameStatus;
+    };
 
 //    double playoutDelay_;
 //
@@ -116,6 +116,6 @@ class MecRTVideoStreamingReceiver : public MecAppBase
     virtual ~MecRTVideoStreamingReceiver();
 };
 
-
+} //namespace
 
 #endif /* APPS_MEC_MECRTVIDEOSTREAMINGRECEIVER_H_ */

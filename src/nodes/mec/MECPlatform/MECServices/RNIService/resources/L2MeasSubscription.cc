@@ -9,13 +9,17 @@
 // and cannot be removed from it.
 //
 
+#include "common/utils/utils.h"
 #include "nodes/mec/MECPlatform/MECServices/RNIService/resources/L2MeasSubscription.h"
 #include <iostream>
+
+namespace simu5g {
 
 using namespace omnetpp;
 
 L2MeasSubscription::L2MeasSubscription() :SubscriptionBase() {};
-L2MeasSubscription::L2MeasSubscription(unsigned int subId, inet::TcpSocket *socket, const std::string& baseResLocation,  std::set<cModule*>& eNodeBs):
+L2MeasSubscription::L2MeasSubscription(unsigned int subId, inet::TcpSocket *socket, const std::string& baseResLocation,
+        std::set<cModule*, simu5g::utils::cModule_LessId>& eNodeBs) :
         SubscriptionBase(subId,socket,baseResLocation, eNodeBs){};
 L2MeasSubscription:: ~L2MeasSubscription(){};
 
@@ -23,7 +27,6 @@ bool L2MeasSubscription::fromJson(const nlohmann::ordered_json& body)
 {
     if(body.contains("L2MeasurementSubscription")) // mandatory attribute
     {
-
         subscriptionType_ = "L2MeasurementSubscription";
     }
     else
@@ -167,5 +170,5 @@ void L2MeasSubscription::sendSubscriptionResponse(){
 }
 void L2MeasSubscription::sendNotification(EventNotification *event){}
 
-
+} //namespace
 

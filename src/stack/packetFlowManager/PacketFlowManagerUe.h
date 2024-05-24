@@ -16,12 +16,13 @@
 #include "common/LteCommon.h"
 #include "PacketFlowManagerBase.h"
 
+namespace simu5g {
 
 /*
  * This module is responsible for keep trace of all PDCP SDUs.
  * A PDCP SDU passes the following state while it is going down
  * through the LTE NIC layers:
- * 
+ *
  * PDCP SDU
  * few operations
  * PDCP PDU
@@ -32,11 +33,11 @@
  * MAC PDU (aka TB)
  *
  * Each PDCP has its own seq number, managed by the corresponding LCID
- * 
+ *
  * The main functions of this module are:
  *  - detect PDCP SDU discarded (no part transmitted)
  *  - calculate the delay time of a pkt, from PDCP SDU to last Harq ACK of the
- *    corresponding seq number.  
+ *    corresponding seq number.
  */
 
 class LteRlcUmDataPdu;
@@ -48,14 +49,14 @@ class PacketFlowManagerUe : public PacketFlowManagerBase
     * The node can have different active connections (lcid) at the same time, hence we need to
     * maintain the status for each of them
     */
-    typedef struct {
+    struct StatusDescriptor {
         MacNodeId nodeId_; // dest node of this lcid
         std::map<unsigned int, PdcpStatus> pdcpStatus_; // a pdcp pdu can be fragmented in many rlc that could be sent and ack in different time (this prevent early remove on ack)
         std::map<unsigned int, SequenceNumberSet> rlcPdusPerSdu_;  // for each RLC SDU, stores the RLC PDUs where the former was fragmented
         std::map<unsigned int, SequenceNumberSet> rlcSdusPerPdu_;  // for each RLC PDU, stores the included RLC SDUs
         std::map<unsigned int, SequenceNumberSet> macSdusPerPdu_;  // for each MAC PDU, stores the included MAC SDUs (should be a 1:1 association)
         std::vector<unsigned int> macPduPerProcess_;               // for each HARQ process, stores the included MAC PDU
-    } StatusDescriptor;
+    };
 
     typedef  std::map<LogicalCid, StatusDescriptor> ConnectionMap;
     ConnectionMap connectionMap_; // lcid to the corresponding StatusDescriptor
@@ -89,11 +90,11 @@ class PacketFlowManagerUe : public PacketFlowManagerBase
     virtual void clearStats();
 
 
-    
+
     virtual void insertPdcpSdu(inet::Packet* pdcpPkt) override;
-    /* 
+    /*
     * This method insert a new rlc seqnum and the corresponding pdcp pdus inside it
-    * @param lcid 
+    * @param lcid
     * @param rlcSno sequence number of the rlc pdu
     * @param pdcpSnoSet list of pdcp pdu inside the rlc pdu
     * @param lastIsFrag used to inform if the last pdcp is fragmented or not
@@ -101,19 +102,19 @@ class PacketFlowManagerUe : public PacketFlowManagerBase
 
     virtual void insertRlcPdu(LogicalCid lcid, const inet::Ptr<LteRlcUmDataPdu> rlcPdu, RlcBurstStatus status) override;
 
-    /* 
+    /*
     * This method insert a new macPduId Omnet id and the corresponding rlc pdus inside it
-    * @param lcid 
+    * @param lcid
     * @param macPdu packet pointer
-    */  
+    */
     virtual void insertMacPdu(const inet::Ptr<const LteMacPdu> macPdu) override;
 
 
     /*
     * This method checks if the HARQ acSequenceNumberSetk relative to a macPduId acknowledges an ENTIRE
-    * pdcp sdu 
+    * pdcp sdu
     * @param lcid
-    * @param macPduId Omnet id of the mac pdu 
+    * @param macPduId Omnet id of the mac pdu
     */
     virtual void macPduArrived(const inet::Ptr<const LteMacPdu> macPdu) override;
 
@@ -155,4 +156,7 @@ class PacketFlowManagerUe : public PacketFlowManagerBase
     virtual void finish() override;
 
 };
+
+} //namespace
+
 #endif

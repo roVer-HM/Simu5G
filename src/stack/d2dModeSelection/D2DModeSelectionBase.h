@@ -14,6 +14,8 @@
 
 #include "stack/mac/layer/LteMacEnb.h"
 
+namespace simu5g {
+
 //
 // D2DModeSelectionBase
 // Base class for D2D Mode Selection modules
@@ -25,12 +27,11 @@ class D2DModeSelectionBase : public omnetpp::cSimpleModule
 protected:
 
     typedef std::pair<MacNodeId, MacNodeId> FlowId;
-    typedef struct
-    {
+    struct FlowModeInfo {
         FlowId flow;
         LteD2DMode oldMode;
         LteD2DMode newMode;
-    } FlowModeInfo;
+    };
     typedef std::list<FlowModeInfo> SwitchList;
     SwitchList switchList_;  // a list of pairs of nodeIds, where the first node represents the transmitter
                              // of the flow, whereas the second node represents the receiver
@@ -73,5 +74,7 @@ public:
     // NOTE: re-implement this method in derived classes
     virtual void doModeSwitchAtHandover(MacNodeId nodeId, bool handoverCompleted);
 };
+
+} //namespace
 
 #endif /* LTE_D2DMODESELECTIONBASE_H_ */

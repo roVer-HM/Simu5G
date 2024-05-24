@@ -16,6 +16,8 @@
 #include "stack/mac/layer/LteMacBase.h"
 #include "stack/mac/layer/LteMacEnb.h"
 
+namespace simu5g {
+
 using namespace omnetpp;
 
 LteHarqBufferRx::LteHarqBufferRx(unsigned int num, LteMacBase *owner,
@@ -239,3 +241,6 @@ bool LteHarqBufferRx::isHarqBufferActive() const {
     }
     return false;
 }
+
+} //namespace
+

@@ -12,6 +12,8 @@
 #include "stack/phy/layer/LtePhyBase.h"
 #include "common/LteCommon.h"
 
+namespace simu5g {
+
 using namespace omnetpp;
 
 short LtePhyBase::airFramePriority_ = 10;
@@ -307,3 +309,6 @@ int LtePhyBase::getReceiverGateIndex(const omnetpp::cModule *receiver, bool isNr
     }
     return gate;
 }
+
+} //namespace
+

@@ -21,6 +21,7 @@
 #include "nodes/mec/MECPlatform/MEAppPacket_Types.h"
 #include "apps/mec/RnisTestApp/packets/RnisTestAppPacket_m.h"
 
+namespace simu5g {
 
 using namespace omnetpp;
 
@@ -38,7 +39,6 @@ class UeRnisTestApp: public cSimpleModule
     //communication to device app and mec app
     inet::UdpSocket socket;
 
-    int size_;
     simtime_t period_;
     int localPort_;
     int deviceAppPort_;
@@ -81,5 +81,7 @@ class UeRnisTestApp: public cSimpleModule
         void handleInfoMecApp(cMessage* msg);
         void handleAckStopMecApp(cMessage* msg);
 };
+
+} //namespace
 
 #endif

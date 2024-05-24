@@ -21,16 +21,21 @@
 # include <unistd.h>
 #endif // ifdef _WIN32
 
-
 namespace simu5g{
 
 namespace utils {
 
 std::vector<std::string> splitString(const std::string& str, std::string delim);
 
+class cModule_LessId
+{
+  public:
+    bool operator()(const omnetpp::cModule *left, const omnetpp::cModule *right) const;
+};
+
+
 } // namespace utils
 
 } // namespace simu5g
-
 
 #endif // ifndef __INET_HTTPUTILS_H

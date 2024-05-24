@@ -15,6 +15,8 @@
 #include "common/LteCommon.h"
 #include "common/binder/Binder.h"
 
+namespace simu5g {
+
 //
 // MultihopD2DStatistics module
 //
@@ -36,10 +38,10 @@ class MultihopD2DStatistics : public omnetpp::cSimpleModule
     // at nodes comprised within the target area of the event. For each node,
     // the reception status includes the reception delay and number of hops.
     // If delay < 0, the node has not (yet) received the message
-    typedef struct {
+    struct ReceptionStatus {
         omnetpp::simtime_t delay_;
         int hops_;
-    } ReceptionStatus;
+    };
     typedef std::map<MacNodeId, ReceptionStatus> DeliveryStatus;
 
     // for each event, store the current delivery status
@@ -77,5 +79,7 @@ public:
     void recordSuppressedMessage(unsigned int msgId);
     void recordDuplicateReception(unsigned int msgId);
 };
+
+} //namespace
 
 #endif /* MULTIHOPD2DSTATISTICS_H_ */

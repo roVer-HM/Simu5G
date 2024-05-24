@@ -12,12 +12,14 @@
 #include "nodes/mec/MECPlatform/MECServices/Resources/SubscriptionBase.h"
 #include "common/cellInfo/CellInfo.h"
 
+namespace simu5g {
+
 using namespace omnetpp;
 
 SubscriptionBase::SubscriptionBase() {}
 
-SubscriptionBase::SubscriptionBase(unsigned int subId, inet::TcpSocket *socket, const std::string& baseResLocation,  std::set<cModule*>& eNodeBs) {
-    std::set<cModule*>::iterator it = eNodeBs.begin();
+SubscriptionBase::SubscriptionBase(unsigned int subId, inet::TcpSocket *socket, const std::string& baseResLocation,  std::set<cModule*, simu5g::utils::cModule_LessId>& eNodeBs) {
+    auto it = eNodeBs.begin();
     for(; it != eNodeBs.end() ; ++it){
         CellInfo * cellInfo = check_and_cast<CellInfo *>((*it)->getSubmodule("cellInfo"));
         eNodeBs_.insert(std::pair<MacCellId, CellInfo *>(cellInfo->getMacCellId(), cellInfo));
@@ -28,8 +30,8 @@ SubscriptionBase::SubscriptionBase(unsigned int subId, inet::TcpSocket *socket, 
 //	notificationTrigger = nullptr;
 }
 
-void SubscriptionBase::addEnodeB(std::set<cModule*>& eNodeBs) {
-    std::set<cModule*>::iterator it = eNodeBs.begin();
+void SubscriptionBase::addEnodeB(std::set<cModule*, simu5g::utils::cModule_LessId>& eNodeBs) {
+    auto it = eNodeBs.begin();
     for(; it != eNodeBs.end() ; ++it){
         CellInfo * cellInfo = check_and_cast<CellInfo *>((*it)->getSubmodule("cellInfo"));
         eNodeBs_.insert(std::pair<MacCellId, CellInfo *>(cellInfo->getMacCellId(), cellInfo));
@@ -105,4 +107,6 @@ int SubscriptionBase::getSocketConnId() const
 {
     return socket_->getSocketId();
 }
+
+} //namespace
 

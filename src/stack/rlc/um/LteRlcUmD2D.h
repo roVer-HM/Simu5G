@@ -12,7 +12,10 @@
 #ifndef _LTE_LTERLCUMD2D_H_
 #define _LTE_LTERLCUMD2D_H_
 
+#include "common/utils/utils.h"
 #include "stack/rlc/um/LteRlcUm.h"
+
+namespace simu5g {
 
 /**
  * @class LteRlcUmD2D
@@ -75,7 +78,9 @@ class LteRlcUmD2D : public LteRlcUm
 
   private:
 
-    std::map<MacNodeId, std::set<UmTxEntity*> > perPeerTxEntities_;
+    std::map<MacNodeId, std::set<UmTxEntity*, simu5g::utils::cModule_LessId> > perPeerTxEntities_;
 };
+
+} //namespace
 
 #endif

@@ -19,6 +19,7 @@ import nodes.mec.MECPlatform.MECPackets;
 //}}
 //import lte.nodes.mec.MEPlatform.MECPackets.MECPacket;
 
+namespace simu5g;
 
 class DeviceAppPacket extends MECPacket {
 //    unsigned int sno;
@@ -36,7 +37,6 @@ class DeviceAppStartPacket extends DeviceAppPacket
 	string mecAppProvider;
 	string appPackageSource;
 }
-
 
 class DeviceAppStopPacket extends DeviceAppPacket
 {
@@ -57,7 +57,3 @@ class DeviceAppStopAckPacket extends DeviceAppPacket
     bool result;
     string reason;
 }
-
-
-
-

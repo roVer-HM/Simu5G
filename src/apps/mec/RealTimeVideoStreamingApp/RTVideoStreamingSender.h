@@ -27,11 +27,11 @@
 #include "nodes/mec/MECPlatform/MEAppPacket_Types.h"
 #include "apps/mec/WarningAlert/packets/WarningAlertPacket_m.h"
 
+namespace simu5g {
 
 using namespace omnetpp;
 
-typedef struct
-{
+struct FragmentedFrameStatus {
     int frameNumber;
     int frameSize;
     int remainingFragments;
@@ -42,8 +42,7 @@ typedef struct
 
     int remainingFrameBytes;
     int remainingFramesSlices;
-
-} FragmentedFrameStatus;
+};
 
 
 /**
@@ -81,10 +80,7 @@ class RTVideoStreamingSender: public cSimpleModule
     cMessage* selfSessionStart_;
     cMessage* selfSessionStop_;
 
-    bool stop_;
-
     inet::UdpSocket videoStreamSocket_;
-    int port;
 
     const char* fileName;
     /**
@@ -92,21 +88,8 @@ class RTVideoStreamingSender: public cSimpleModule
      */
     std::ifstream _inputFileStream;
 
-    bool pendingStartRequest;
-    bool moduleCreated;
-
     int mtu_;
     cMessage* _nextFrame;
-
-    /**
-     * duration of each session
-     */
-    double sessionDuration_;
-
-    /**
-     * period between sessions
-     */
-    double periodBetweenSession_;
 
     /**
      * The initial delay of the mpeg video.
@@ -187,5 +170,6 @@ class RTVideoStreamingSender: public cSimpleModule
         void initializeVideoStream();
 };
 
+} //namespace
 
 #endif /* APPS_MEC_RTVIDEOSTREAMINGSENDER_H_ */

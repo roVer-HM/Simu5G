@@ -15,6 +15,7 @@ import inet.networklayer.common.L3Address;
 import inet.common.INETDefs;
 import inet.common.packet.chunk.Chunk;
 
+namespace simu5g;
 
 class RequestResponseAppPacket extends inet::FieldsChunk 
 {
@@ -30,8 +31,3 @@ class RequestResponseAppPacket extends inet::FieldsChunk
     simtime_t serviceResponseTime;
     simtime_t responseSentTimestamp;        
 }
-
-
-
-
-
