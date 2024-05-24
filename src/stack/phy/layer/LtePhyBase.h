@@ -134,6 +134,7 @@ class LtePhyBase : public ChannelAccess
     omnetpp::simsignal_t averageCqiDl_;
     omnetpp::simsignal_t averageCqiUl_;
     omnetpp::simsignal_t averageCqiD2D_;
+    omnetpp::simsignal_t macNodeIdSignal_;
 
     // User that are trasmitting (uplink)
     //receiveng(downlink) current packet
