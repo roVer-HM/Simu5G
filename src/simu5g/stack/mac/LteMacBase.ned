@@ -59,7 +59,7 @@ module LteMacBase like ILteMac
         // @signal[macCellThroughputDl];
         // @statistic[macCellThroughputDl](title="Cell Throughput at the MAC layer DL"; unit="Bps"; source="macCellThroughputDl"; record=simu5g_rateavg);
         @signal[macPacketUl](type=inet::Packet);
-        @statistic[macThroughputUl](title="Throughput at the MAC layer UL"; unit="Bps"; source="throughput(macPacketUl)"; record=mean);
+        @statistic[macThroughputUl](title="Throughput at the MAC layer UL"; unit="Bps"; source="throughput(macThroughputUl)"; record=mean);
         @signal[macCellPacketUl](type=inet::Packet);
         @statistic[macCellThroughputUl](title="Cell Throughput at the MAC layer UL"; unit="Bps"; source="throughput(macCellPacketUl)"; record=mean);
         @signal[macCellPacketDl](type=inet::Packet);
