@@ -145,7 +145,6 @@ void LteRlcAm::routeControlMessage(cPacket *pktAux)
     auto lteInfo = pkt->getTagForUpdate<FlowControlInfo>();
     AmTxQueue* txbuf = getTxBuffer(ctrlInfoToUeId(lteInfo), lteInfo->getLcid());
     txbuf->handleControlPacket(pkt);
-    lteInfo = pkt->removeTag<FlowControlInfo>();
 }
 
 void LteRlcAm::handleLowerMessage(cPacket *pktAux)
