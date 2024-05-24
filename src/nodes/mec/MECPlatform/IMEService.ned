@@ -15,17 +15,16 @@ package simu5g.nodes.mec.MECPlatform;
 //
 // Template for ME Services.
 //
-
 moduleinterface IMEService
 {
     parameters:
-        @display("i=block/app");  
+        @display("i=block/app");
         string serviceName;
-                
+
     gates:
-        
+
         input meAppIn[];
-        output meAppOut[];     
+        output meAppOut[];
 }
 
 

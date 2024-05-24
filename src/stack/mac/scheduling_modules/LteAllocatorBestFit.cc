@@ -137,9 +137,6 @@ void LteAllocatorBestFit::prepareSchedule()
     // Get the active connection Set
     activeConnectionTempSet_ = *activeConnectionSet_;
 
-    // record the amount of allocated bytes (for optimal comparison)
-    unsigned int totalAllocatedBytes = 0;
-
     // Resume a MaxCi scoreList build mode
     // Build the score list by cycling through the active connections.
     ScoreList score;
@@ -209,8 +206,9 @@ void LteAllocatorBestFit::prepareSchedule()
             // For each logical band
             for (;it!=et;++it)
             {
-                availableBlocks += eNbScheduler_->readAvailableRbs(nodeId,*antennaIt,*it);
-                availableBytes += eNbScheduler_->mac_->getAmc()->computeBytesOnNRbs(nodeId,*it, availableBlocks, dir,carrierFrequency_);
+                unsigned int blocks = eNbScheduler_->readAvailableRbs(nodeId,*antennaIt,*it);
+                availableBlocks += blocks;
+                availableBytes += eNbScheduler_->mac_->getAmc()->computeBytesOnNRbs(nodeId,*it, blocks, dir,carrierFrequency_);
             }
         }
 
@@ -495,8 +493,6 @@ void LteAllocatorBestFit::prepareSchedule()
                 byte_served = blocks*req_Bytes1RB;
                 conn->front().first -= (blocks*req_Bytes1RB - MAC_HEADER - RLC_HEADER_UM); // Otherwise update the BSR size
             }
-
-            totalAllocatedBytes += byte_served;
         }
 
         // Extract the node from the right set

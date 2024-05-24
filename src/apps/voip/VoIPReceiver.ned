@@ -1,13 +1,13 @@
-// 
+//
 //                  Simu5G
 //
 // Authors: Giovanni Nardini, Giovanni Stea, Antonio Virdis (University of Pisa)
-// 
+//
 // This file is part of a software released under the license included in file
 // "license.pdf". Please read LICENSE and README files before using it.
-// The above files and the present reference are part of the software itself, 
+// The above files and the present reference are part of the software itself,
 // and cannot be removed from it.
-// 
+//
 
 package simu5g.apps.voip;
 
@@ -26,7 +26,7 @@ simple VoIPReceiver like IApp
         int dim_buffer = default(20);
         double sampling_time @unit("s") = default(0.02s);
 
-		@signal[voIPFrameLoss];
+        @signal[voIPFrameLoss];
         @statistic[voIPFrameLoss](title="VoIP Frame Loss"; unit="ratio"; source="voIPFrameLoss"; record=mean);
         @signal[voIPFrameDelay];
         @statistic[voIPFrameDelay](title="VoIP Frame Delay"; unit="s"; source="voIPFrameDelay"; record=mean,vector);
@@ -35,7 +35,7 @@ simple VoIPReceiver like IApp
         @signal[voIPPlayoutLoss];
         @statistic[voIPPlayoutLoss](title="VoIP Playout Loss"; unit="ratio"; source="voIPPlayoutLoss"; record=mean);
         @signal[voIPJitter];
-        @statistic[voIPJitter](title="VoIP Playout Loss"; unit="s"; source="voIPJitter"; record=mean);
+        @statistic[voIPJitter](title="VoIP Jitter"; unit="s"; source="voIPJitter"; record=mean);
         @signal[voIPMos];
         @statistic[voIPMos](title="VoIP Mos Signal"; unit="MOS"; source="voIPMos"; record=mean);
         @signal[voIPTaildropLoss];
