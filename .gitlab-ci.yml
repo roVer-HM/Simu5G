@@ -52,35 +52,14 @@ Build:
     - inet4/src
     expire_in: 2 weeks
 
-# This job runs the 4G fingerprint tests
-4G_Fingerprints:
+# This job runs the fingerprint tests
+Fingerprints:
   stage: test
   script:
-    - "cd simu5g/tests/fingerprint/LTE"
+    - "cd simu5g/tests/fingerprint"
     - "../../../../$RV/omnetpp ${CROWNET_OPP_CONT_TAG} exec ./fingerprints"
   artifacts:
     paths:
     - simu5g/tests/fingerprint
     expire_in: 2 weeks
-
-# This job runs the 5G fingerprint tests
-5G_Fingerprints:
-  stage: test
-  script:
-    - "cd simu5g/tests/fingerprint/NR"
-    - "../../../../$RV/omnetpp ${CROWNET_OPP_CONT_TAG} exec ./fingerprints"
-  artifacts:
-    paths:
-    - simu5g/tests/fingerprint/NR
-    expire_in: 2 weeks
-
-# This job runs the MEC fingerprint tests
-MEC_Fingerprints:
-  stage: test
-  script:
-    - "cd simu5g/tests/fingerprint/mec"
-    - "../../../../$RV/omnetpp ${CROWNET_OPP_CONT_TAG} exec ./fingerprints"
-  artifacts:
-    paths:
-    - simu5g/tests/fingerprint/mec
-    expire_in: 2 weeks
+    
