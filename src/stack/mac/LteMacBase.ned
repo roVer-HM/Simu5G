@@ -13,14 +13,19 @@
 package simu5g.stack.mac;
 
 //
-// Base module for the MAC layer of LTE Stack.
+// Base module for the Medium Access Control (MAC) layer of the LTE protocol stack.
 //
-simple LteMacBase like LteMac
+// This module provides common functionalities for MAC operations at both the
+// eNodeB and User Equipment (UE) sides, such as functions to exchange MAC Service
+// Data Units (SDUs) with the Radio Link Control (RLC) layer, and MAC Protocol Data
+// Units (PDUs) with the physical layer.
+//
+simple LteMacBase like ILteMac
 {
     parameters:
         @display("i=block/mac");
-        string interfaceTableModule;
-        string interfaceName = default("cellular");
+        string binderModule = default("binder");
+        string packetFlowManagerModule = default("^.packetFlowManager"); // TODO or nrPacketFlowManager
 
         //# Mac Queues
         int queueSize @unit(B) = default(2MiB);              // MAC Buffers queue size
@@ -48,9 +53,9 @@ simple LteMacBase like LteMac
         @signal[macThroughputUl];
         @statistic[macThroughputUl](title="Throughput at the MAC layer UL"; unit="Bps"; source="macThroughputUl"; record=mean);
         @signal[macCellThroughputUl];
-        @statistic[macCellThroughputUl](title="Cell Throughput at the MAC layer UL"; unit="Bps"; source="throughput(macCellThroughputUl)"; record=mean); 
+        @statistic[macCellThroughputUl](title="Cell Throughput at the MAC layer UL"; unit="Bps"; source="macCellThroughputUl"; record=mean);
         @signal[macCellThroughputDl];
-        @statistic[macCellThroughputDl](title="Cell Throughput at the MAC layer DL"; unit="Bps"; source="throughput(macCellThroughputDl)"; record=mean);
+        @statistic[macCellThroughputDl](title="Cell Throughput at the MAC layer DL"; unit="Bps"; source="macCellThroughputDl"; record=mean);
         @signal[macCellPacketLossDl];
         @statistic[macCellPacketLossDl](title="Mac Cell Packet Loss Dl"; unit=""; source="macCellPacketLossDl"; record=mean);
         @signal[macCellPacketLossUl];

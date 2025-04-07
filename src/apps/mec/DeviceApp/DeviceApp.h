@@ -9,16 +9,19 @@
 // and cannot be removed from it.
 //
 
-
 #ifndef APPS_MEC_MEAPPS_DEVICEAPP_H_
 #define APPS_MEC_MEAPPS_DEVICEAPP_H_
 
 #include <omnetpp.h>
-#include "inet/transportlayer/contract/udp/UdpSocket.h"
-#include "inet/transportlayer/contract/tcp/TcpSocket.h"
+
+#include <inet/transportlayer/contract/tcp/TcpSocket.h>
+#include <inet/transportlayer/contract/udp/UdpSocket.h>
+
 #include "DeviceAppMessages/DeviceAppPacket_m.h"
 
 namespace simu5g {
+
+using namespace omnetpp;
 
 /*
  * This is a very simple application implementing some Device Application functionalities,
@@ -29,7 +32,7 @@ namespace simu5g {
  * app has it own device app) and it interfaces with the UALCM proxy via the RESTful API.
  *
  * TCP socket management is minimal, it send requests only if the socket is connected and
- * responds with nacks (withe reason to the UE app) if not.
+ * responds with nacks (with reason to the UE app) if not.
  *
  * Communication with the UE app occurs via set of OMNeT++ messages:
  *  - request instantation of a MEC app
@@ -43,76 +46,76 @@ namespace simu5g {
 
 class HttpBaseMessage;
 
-enum State {IDLE, START, APPCREATED, CREATING, DELETING};
+enum State { IDLE, START, APPCREATED, CREATING, DELETING };
 
-
-class DeviceApp : public omnetpp::cSimpleModule, public inet::TcpSocket::ICallback, public inet::UdpSocket::ICallback
+class DeviceApp : public cSimpleModule, public inet::TcpSocket::ICallback, public inet::UdpSocket::ICallback
 {
-    protected:
+  protected:
 
-        inet::TcpSocket UALCMPSocket_;
-        inet::UdpSocket ueAppSocket_;
+    inet::TcpSocket UALCMPSocket_;
+    inet::UdpSocket ueAppSocket_;
 
-        inet::L3Address UALCMPAddress;
-        int  UALCMPPort;
+    inet::L3Address UALCMPAddress;
+    int UALCMPPort;
 
-        HttpBaseMessage* UALCMPMessage;
-        std::string UALCMPMessageBuffer;
+    HttpBaseMessage *UALCMPMessage = nullptr;
+    std::string UALCMPMessageBuffer;
 
-        omnetpp::cMessage* processedUALCMPMessage;
+    cMessage *processedUALCMPMessage = nullptr;
 
-        int localPort;
+    int localPort;
 
-        inet::L3Address ueAppAddress;
-        int ueAppPort;
+    inet::L3Address ueAppAddress;
+    int ueAppPort;
 
-        bool flag;
+    bool flag;
 
-        std::string appContextUri;
-        std::string mecAppEndPoint;
+    std::string appContextUri;
+    std::string mecAppEndPoint;
 
-        State appState;
-        std::string appName;
+    State appState;
+    std::string appName;
 
-        // variable set in ned, if the appDescriptor is not in the MEC orchestrator
-//        std::string appProvider; not used
-        std::string appPackageSource;
+    // mapping from app names to app dev id to use (only used for shared apps)
+    std::map<std::string, int> devAppIds;
 
+    // variable set in ned, if the appDescriptor is not in the MEC orchestrator
+    std::string appPackageSource;
 
-        virtual void initialize(int stage) override;
-        virtual int numInitStages() const override { return inet::NUM_INIT_STAGES; }
-        virtual void handleMessage(omnetpp::cMessage *msg) override;
-        virtual void finish() override;
+    void initialize(int stage) override;
+    int numInitStages() const override { return inet::NUM_INIT_STAGES; }
+    void handleMessage(cMessage *msg) override;
+    void finish() override;
 
-        /* Utility functions */
-        virtual void handleSelfMessage(omnetpp::cMessage *msg);
-        virtual void handleUALCMPMessage();
-        void sendStartAppContext(inet::Ptr<const DeviceAppPacket> pk);
-        void sendStopAppContext(inet::Ptr<const DeviceAppPacket> pk);
+    /* Utility functions */
+    virtual void handleSelfMessage(cMessage *msg);
+    virtual void handleUALCMPMessage();
+    void sendStartAppContext(inet::Ptr<const DeviceAppPacket> pk);
+    void sendStopAppContext(inet::Ptr<const DeviceAppPacket> pk);
 
-        virtual void connectToUALCMP();
+    virtual void connectToUALCMP();
 
-        /* inet::TcpSocket::CallbackInterface callback methods */
-        virtual void socketDataArrived(inet::TcpSocket *socket, inet::Packet *msg, bool urgent) override;
-        virtual void socketAvailable(inet::TcpSocket *socket, inet::TcpAvailableInfo *availableInfo) override { socket->accept(availableInfo->getNewSocketId()); }
-        virtual void socketEstablished(inet::TcpSocket *socket) override;
-        virtual void socketPeerClosed(inet::TcpSocket *socket) override;
-        virtual void socketClosed(inet::TcpSocket *socket) override;
-        virtual void socketFailure(inet::TcpSocket *socket, int code) override;
-        virtual void socketStatusArrived(inet::TcpSocket *socket, inet::TcpStatusInfo *status) override {}
-        virtual void socketDeleted(inet::TcpSocket *socket) override {}
+    /* inet::TcpSocket::CallbackInterface callback methods */
+    void socketDataArrived(inet::TcpSocket *socket, inet::Packet *msg, bool urgent) override;
+    void socketAvailable(inet::TcpSocket *socket, inet::TcpAvailableInfo *availableInfo) override { socket->accept(availableInfo->getNewSocketId()); }
+    void socketEstablished(inet::TcpSocket *socket) override;
+    void socketPeerClosed(inet::TcpSocket *socket) override;
+    void socketClosed(inet::TcpSocket *socket) override;
+    void socketFailure(inet::TcpSocket *socket, int code) override;
+    void socketStatusArrived(inet::TcpSocket *socket, inet::TcpStatusInfo *status) override {}
+    void socketDeleted(inet::TcpSocket *socket) override {}
 
-        /* inet::UdpSocket::CallbackInterface callback methods */
-        virtual void socketDataArrived(inet::UdpSocket *socket, inet::Packet *packet) override;
-        virtual void socketErrorArrived(inet::UdpSocket *socket, inet::Indication *indication) override;
-        virtual void socketClosed(inet::UdpSocket *socket) override;
+    /* inet::UdpSocket::CallbackInterface callback methods */
+    void socketDataArrived(inet::UdpSocket *socket, inet::Packet *packet) override;
+    void socketErrorArrived(inet::UdpSocket *socket, inet::Indication *indication) override;
+    void socketClosed(inet::UdpSocket *socket) override;
 
-    public:
-      DeviceApp();
-      virtual ~DeviceApp();
+  public:
+    ~DeviceApp() override;
 
- };
+};
 
 } //namespace
 
 #endif /* APPS_MEC_MEAPPS_DEVICEAPP_H_ */
+

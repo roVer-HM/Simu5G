@@ -13,7 +13,10 @@
 package simu5g.stack.mac;
 
 //
-// eNodeB MAC layer of LTE stack with support for D2D-capable UEs
+// This module extends LTE MAC functionalities at the eNodeB side to support device-to-device (D2D)
+// communications. Specifically, it enhances resource allocation procedures to enable direct
+// communication between User Equipments (UEs), i.e., it allocates resources for D2D transmissions.
+// Network-assisted D2D is only implemented (out-of-coverage D2D is not supported).
 //
 simple LteMacEnbD2D extends LteMacEnb
 {
@@ -41,7 +44,7 @@ simple LteMacEnbD2D extends LteMacEnb
         bool msClearRlcBuffer = default(true);
 
         @signal[macCellThroughputD2D];
-        @statistic[macCellThroughputD2D](title="Cell Throughput at the MAC layer D2D"; unit="Bps"; source="throughput(macCellThroughputD2D)"; record=mean); 
+        @statistic[macCellThroughputD2D](title="Cell Throughput at the MAC layer D2D"; unit="Bps"; source="macCellThroughputD2D"; record=mean);
         @signal[macCellPacketLossD2D];
         @statistic[macCellPacketLossD2D](title="Mac Cell Packet Loss D2D"; unit=""; source="macCellPacketLossD2D"; record=mean);
 }

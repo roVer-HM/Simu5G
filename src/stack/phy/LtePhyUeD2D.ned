@@ -13,7 +13,12 @@
 package simu5g.stack.phy;
 
 //
-// D2D-capable User Equipment LtePhy module of PHY Layer
+// This module extends LTE PHY functionalities at the User Equipment side to support device-to-device (D2D)
+// communications. Specifically, it customizes the ~LtePhyUe functionalities to support the transmission and reception
+// of frames to another UE directly, without going through the serving eNodeB. It also supports one-to-many
+// D2D transmission to UEs belonging to a multicast group. It is assumed that one-to-one D2D communication is only possible
+// when both endpoints are served by the same eNodeB. When a handover is triggered, this module is responsible
+// for initiating a mode switch from direct (D2D) mode to infrastructure mode.
 //
 simple LtePhyUeD2D extends LtePhyUe
 {
@@ -22,7 +27,6 @@ simple LtePhyUeD2D extends LtePhyUe
         double d2dTxPower @unit(dBm) = default(26dBm);
         bool d2dMulticastCaptureEffect = default(true);
         string d2dMulticastCaptureEffectFactor = default("RSRP");  // or distance
-        bool d2dEnforceEnbBoundOnSideLink = default(false);        // Do not allow D2D communication between UE's associated with different eNB's.
 
         //# D2D CQI statistic
         @signal[averageCqiD2D];
