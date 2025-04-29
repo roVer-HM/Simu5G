@@ -1,4 +1,5 @@
 #!/bin/sh
+set -e
 cd $(dirname $0)
 python3 fingerprinttest.py -C $SIMU5G_ROOT -e $SIMU5G_ROOT/bin/simu5g "$@"
 exitcode=$?
