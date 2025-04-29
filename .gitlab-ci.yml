@@ -3,7 +3,8 @@ variables:
 # Tags of all containers required for building and testing
 # Note: Tags here must include ALL container tags required in the fingerprint
 #       *.csv and *.yml files.
-  INETBRANCH: 'v4.5.4'
+  # INETBRANCH: 'v4.5.4'
+  INETBRANCH: 'hm_master'
   BUILDMODE: 'release'
   CROWNET_IMAGE_REG: '${CI_REGISTRY}'
   CROWNET_IMAGE_BASE: '${CROWNET_IMAGE_REG}/rover/crownet'
