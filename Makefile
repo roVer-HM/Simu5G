@@ -1,5 +1,6 @@
 FEATURETOOL = opp_featuretool
 FEATURES_H = src/simu5g/common/features.h
+INET_ROOT = ../../inet4
 
 .PHONY: all clean cleanall makefiles checkenvir checkmakefiles dist neddoc tests
 
