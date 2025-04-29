@@ -1,3 +1,5 @@
+INET_ROOT=../../inet4
+
 all: checkmakefiles
 	@cd src && $(MAKE)
 
