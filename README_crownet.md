@@ -9,3 +9,6 @@
 
 ## Fingerprint tests
 * test script updated to fail if any subcommand fails (so gitlab displays the correct state of the pipeline)
+
+## INET Version
+* use the 'hm_master' branch of INET since we need to compile with CrowNet lateron
