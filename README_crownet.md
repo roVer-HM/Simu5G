@@ -6,3 +6,6 @@
 
 ## Adapted default locations
 * INET framework is assumed to be in ../inet4 (e.g. in Makefile and fingerprints)
+
+## Fingerprint tests
+* test script updated to fail if any subcommand fails (so gitlab displays the correct state of the pipeline)
