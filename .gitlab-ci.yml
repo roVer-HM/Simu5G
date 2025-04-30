@@ -60,6 +60,7 @@ Fingerprints:
     - "cd simu5g/tests/fingerprint"
     - "../../../../$RV/omnetpp ${CROWNET_OPP_CONT_TAG} exec ./fingerprints"
   artifacts:
+    when: always
     paths:
     - simu5g/tests/fingerprint
     expire_in: 2 weeks
