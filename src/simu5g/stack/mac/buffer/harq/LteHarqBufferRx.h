@@ -55,18 +55,18 @@ class LteHarqBufferRx
     bool isMulticast_;
 
     // Statistics
-    // unsigned int totalRcvdBytes_ = 0;
     Direction dir = UNKNOWN_DIRECTION;
 
+    static simsignal_t macPacketSignal_[2];
+    static simsignal_t macCellPacketSignal_[2];
     static simsignal_t macDelaySignal_[2];
-    static simsignal_t macThroughputSignal_[2];
-
-    // reference to the eNB module
 
   private:
     // LteMacBase* of the UE for which this buffer has been created (whose ID is srcId_).
     // Only access via methods. This can be nullptr if node is removed from simulation
     opp_component_ptr<LteMacBase> macUe_;
+    // reference to the eNB/gNB module (required for CrowNet per-cell statistics)
+    opp_component_ptr<cModule> nodeB_;
 
   protected:
     LteHarqBufferRx(Binder *binder, LteMacBase *owner, unsigned int num, MacNodeId srcId);
@@ -168,6 +168,24 @@ class LteHarqBufferRx
             macUe_->emit(signal, val);
         }
     }
+    virtual void macUe_emit(simsignal_t signal, inet::Packet *pkt)
+    {
+        if (macUe_ != nullptr) {
+            macUe_->emit(signal, pkt);
+        }
+    }
+
+    /**
+     * CrowNet (statistics): Only emit signals from nodeB_ if the node still exists.
+     */
+    virtual void nodeB_emit(simsignal_t signal, inet::Packet *pkt)
+    {
+        if (nodeB_ != nullptr) {
+            nodeB_->emit(signal, pkt);
+        } else {
+            EV_WARN << "LteHarqBufferRx::nodeB_emit: nodeB_ is nullptr, cannot emit signal" << endl;
+        }
+    }
 
     /**
      * macUe_ is a private member, so derived classes need this member function to
@@ -175,10 +193,14 @@ class LteHarqBufferRx
      * function to emit statistics (hence, checking against nullptr)
      */
     void initMacUe() {
-        if (macOwner_->getNodeType() == NODEB)
+        if (macOwner_->getNodeType() == NODEB) {
             macUe_ = check_and_cast<LteMacBase *>(binder_->getMacByNodeId(srcId_));
-        else
+            nodeB_ = macOwner_; // for CrowNet per-cell statistics
+        }
+        else { // this is a UE
             macUe_ = macOwner_;
+            nodeB_ = binder_->getMacByNodeId(macUe_->getMacCellId()); // for CrowNet per-cell statistics
+        }
     }
 
 };
