@@ -78,7 +78,7 @@ class ChannelControl : public cSimpleModule, public IChannelControl
     ChannelTransmissionLists transmissions; // indexed by channel number (size=numChannels)
 
     /** used to clear the transmission list from time to time */
-    simtime_t lastOngoingTransmissionsUpdate;
+    simtime_t lastOngoingTransmissionsUpdate = 0;
 
     friend std::ostream& operator<<(std::ostream&, const RadioEntry&);
     friend std::ostream& operator<<(std::ostream&, const TransmissionList&);
@@ -96,7 +96,8 @@ class ChannelControl : public cSimpleModule, public IChannelControl
     virtual double calcInterfDist();
 
     /** Reads init parameters and calculates a maximum interference distance*/
-    void initialize() override;
+    void initialize(int stage) override;
+    int numInitStages() const override { return inet::NUM_INIT_STAGES; }
 
     /** Throws away expired transmissions. */
     virtual void purgeOngoingTransmissions();

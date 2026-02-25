@@ -9,10 +9,16 @@
 // and cannot be removed from it.
 //
 
-import simu5g.stack.rlc.packet.LteRlcSdu;
+import inet.common.INETDefs;
+import inet.common.TagBase;
 
 namespace simu5g;
 
-class LteRlcAmSdu extends LteRlcSdu
+//
+// Tag to track PDCP metadata across protocol layers.
+//
+class PdcpTrackingTag extends inet::TagBase
 {
+    unsigned int pdcpSequenceNumber = 0;    // Original PDCP sequence number
+    unsigned int originalPacketLength = 0;  // Original packet size (before any RLC processing)
 }

@@ -10,9 +10,11 @@
 //
 
 import simu5g.stack.phy.packet.AirFrame;
+import simu5g.common.LteControlInfo;
 
 cplusplus {{
 #include "simu5g/common/LteCommon.h"  // for RemoteUnitPhyDataVector
+#include "simu5g/common/LteControlInfo.h"
 }}
 
 namespace simu5g;
@@ -27,8 +29,8 @@ namespace simu5g;
 // In the simulation, all these messages types are abstracted as LteAirFrame transmissions.
 //
 packet LteAirFrame extends AirFrame {
-    @customize(true);
     RemoteUnitPhyData remoteUnitPhyDataVector[] @nopack;
+    UserControlInfo additionalInfo @nopack;
 }
 
 cplusplus(LteAirFrame) {{

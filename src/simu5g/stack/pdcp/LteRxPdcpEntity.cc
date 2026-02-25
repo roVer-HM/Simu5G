@@ -19,17 +19,19 @@
 #include "simu5g/stack/packetFlowObserver/PacketFlowObserverBase.h"
 #include "simu5g/stack/pdcp/packet/LteRohcPdu_m.h"
 #include "simu5g/stack/pdcp/packet/LtePdcpPdu_m.h"
+#include "simu5g/stack/pdcp/packet/LtePdcpPdu_m.h"
 
 namespace simu5g {
 
 Define_Module(LteRxPdcpEntity);
 
 
-void LteRxPdcpEntity::initialize()
+void LteRxPdcpEntity::initialize(int stage)
 {
-    pdcp_ = check_and_cast<LtePdcpBase *>(getParentModule());
-
-    headerCompressionEnabled_ = pdcp_->par("headerCompressedSize").intValue() > 0;  // TODO a.k.a. LTE_PDCP_HEADER_COMPRESSION_DISABLED
+    if (stage == inet::INITSTAGE_LOCAL) {
+        pdcp_ = check_and_cast<LtePdcpBase *>(getParentModule());
+        headerCompressionEnabled_ = pdcp_->par("headerCompressedSize").intValue() > 0;  // TODO a.k.a. LTE_PDCP_HEADER_COMPRESSION_DISABLED
+    }
 }
 
 void LteRxPdcpEntity::handlePacketFromLowerLayer(Packet *pkt)
@@ -37,8 +39,9 @@ void LteRxPdcpEntity::handlePacketFromLowerLayer(Packet *pkt)
     take(pkt);
     EV << NOW << " LteRxPdcpEntity::handlePacketFromLowerLayer - LCID[" << lcid_ << "] - processing packet from RLC layer" << endl;
 
-    // pop PDCP header
-    pkt->popAtFront<LtePdcpHeader>();
+    // Extract sequence number from PDCP header before popping it
+    auto pdcpHeader = pkt->peekAtFront<LtePdcpHeader>();
+    unsigned int sequenceNumber = pdcpHeader->getSequenceNumber();
 
     // TODO NRRxEntity could delete this packet in handlePdcpSdu()...
     auto lteInfo = pkt->getTag<FlowControlInfo>();
@@ -48,20 +51,21 @@ void LteRxPdcpEntity::handlePacketFromLowerLayer(Packet *pkt)
             flowObserver->receivedPdcpSdu(pkt);
     }
 
+    // pop PDCP header
+    pkt->popAtFront<LtePdcpHeader>();
+
     // perform PDCP operations
     decompressHeader(pkt); // Decompress packet header
 
     // handle PDCP SDU
-    handlePdcpSdu(pkt);
+    handlePdcpSdu(pkt, sequenceNumber);
 }
 
-void LteRxPdcpEntity::handlePdcpSdu(Packet *pkt)
+void LteRxPdcpEntity::handlePdcpSdu(Packet *pkt, unsigned int sequenceNumber)
 {
     Enter_Method("LteRxPdcpEntity::handlePdcpSdu");
 
-    auto controlInfo = pkt->getTag<FlowControlInfo>();
-
-    EV << NOW << " LteRxPdcpEntity::handlePdcpSdu - processing PDCP SDU with SN[" << controlInfo->getSequenceNumber() << "]" << endl;
+    EV << NOW << " LteRxPdcpEntity::handlePdcpSdu - processing PDCP SDU with SN[" << sequenceNumber << "]" << endl;
 
     // deliver to IP layer
     pdcp_->toDataPort(pkt);

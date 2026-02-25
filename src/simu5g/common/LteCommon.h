@@ -120,65 +120,28 @@ typedef std::vector<double> AttenuationVector;
 *************************/
 
 /// Number of transmission modes in DL direction.
-const unsigned char DL_NUM_TXMODE = MULTI_USER + 1;
+const unsigned char DL_NUM_TXMODE = 6; //UNKNOWN_TX_MODE;
 
 /// Number of transmission modes in UL direction.
-const unsigned char UL_NUM_TXMODE = MULTI_USER + 1;
+const unsigned char UL_NUM_TXMODE = 6; //UNKNOWN_TX_MODE;
 
 
-const unsigned int txModeToIndex[6] = { 0, 0, 1, 2, 2, 0 };
+const unsigned int txModeToIndex[2] = { 0, 1 };
 
-const TxMode indexToTxMode[3] = {
+const TxMode indexToTxMode[2] = {
     SINGLE_ANTENNA_PORT0,
-    TRANSMIT_DIVERSITY,
-    OL_SPATIAL_MULTIPLEXING
+    TRANSMIT_DIVERSITY
 };
 
 typedef std::map<MacNodeId, TxMode> TxModeMap;
 
 const double cqiToByteTms[16] = { 0, 2, 3, 5, 11, 15, 20, 25, 36, 38, 49, 63, 72, 79, 89, 92 };
 
-struct Lambda
-{
-    unsigned int index;
-    unsigned int lambdaStart;
-    unsigned int channelIndex;
-    double lambdaMin;
-    double lambdaMax;
-    double lambdaRatio;
-};
-
 double dBmToLinear(double dbm);
 double dBToLinear(double db);
 double linearToDBm(double lin);
 double linearToDb(double lin);
 
-/*************************
-*      DAS Support      *
-*************************/
-
-
-/**
- * Maximum number of available DAS RU per cell.
- * To increase this number, change former enumerate accordingly.
- * MACRO antenna excluded.
- */
-const unsigned char NUM_RUS = RU6;
-
-/**
- * Maximum number of available ANTENNAS per cell.
- * To increase this number, change former enumerate accordingly.
- * MACRO antenna included.
- */
-const unsigned char NUM_ANTENNAS = NUM_RUS + 1;
-
-/**
- *  Block allocation Map: # of Rbs per Band, per Remote.
- */
-typedef std::map<Remote, std::map<Band, unsigned int>> RbMap;
-
-
-//|--------------------------------------------------|
 
 /*****************
 * X2 Support
@@ -233,7 +196,6 @@ typedef std::vector<BandLimit> BandLimitVector;
 const unsigned char MAXCW = 2;
 const Cqi MAXCQI = 15;
 const Cqi NOSIGNALCQI = 0;
-const Pmi NOPMI = 0;
 const Rank NORANK = 1;
 const Tbs CQI2ITBSSIZE = 29;
 const unsigned int PDCP_HEADER_UM = 1;
@@ -321,7 +283,7 @@ typedef std::pair<unsigned char, CwList> UnitList;
 struct EnbInfo
 {
     bool init;         // initialization flag
-    RanNodeType nodeType; // ENODEB or GNODEB
+    bool isNr;        // eNodeB or gNodeB
     EnbType type;     // MICRO_ENB or MACRO_ENB
     double txPwr;
     TxDirectionType txDirection;
@@ -402,7 +364,6 @@ typedef std::map<GHz, CarrierInfo> CarrierInfoMap;
 *************************************/
 
 typedef std::vector<Cqi> CqiVector;
-typedef std::vector<Pmi> PmiVector;
 typedef std::set<Band> BandSet;
 typedef std::set<Remote> RemoteSet;
 typedef std::map<MacNodeId, bool> ConnectedUesMap;
@@ -434,7 +395,7 @@ const std::string schedDisciplineToA(SchedDiscipline discipline);
 SchedDiscipline aToSchedDiscipline(std::string s);
 Remote aToDas(std::string s);
 const std::string dasToA(const Remote r);
-const std::string nodeTypeToA(const RanNodeType t);
+const char *nodeTypeToA(RanNodeType t);
 RanNodeType aToNodeType(std::string name);
 RanNodeType getNodeTypeById(MacNodeId id);
 bool isBaseStation(CoreNodeType nodeType);
@@ -452,11 +413,19 @@ LteRlcType aToRlcType(std::string s);
 const std::string planeToA(Plane p);
 MacNodeId ctrlInfoToUeId(const FlowControlInfo *info);
 MacCid ctrlInfoToMacCid(const FlowControlInfo *info);        // get the CID from the packet control info
-FeedbackGeneratorType getFeedbackGeneratorType(std::string s);
-const std::string fbGeneratorTypeToA(FeedbackGeneratorType type);
 const std::string DeploymentScenarioToA(DeploymentScenario type);
 DeploymentScenario aToDeploymentScenario(std::string s);
-bool isMulticastConnection(LteControlInfo *lteInfo);
+bool isMulticastConnection(FlowControlInfo *lteInfo);
+
+/**
+ * Check if a MacNodeId represents a multicast destination ID
+ *
+ * @param nodeId the MacNodeId to check
+ * @return true if the nodeId is in the multicast destination ID range
+ */
+inline bool isMulticastDestId(MacNodeId nodeId) {
+    return num(nodeId) >= MULTICAST_DEST_MIN_ID;
+}
 
 /**
  * Utility function that reads the parameters of an XML element

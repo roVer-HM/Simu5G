@@ -136,7 +136,7 @@ class LtePdcpBase : public cSimpleModule
     static simsignal_t sentPacketToUpperLayerSignal_;
     static simsignal_t sentPacketToLowerLayerSignal_;
 
-  protected:
+  public:
 
     /**
      * lookupTxEntity() searches for an existing TX PDCP entity for the given CID.
@@ -170,6 +170,7 @@ class LtePdcpBase : public cSimpleModule
      */
     virtual LteRxPdcpEntity *createRxEntity(MacCid cid);
 
+  protected:
     /*
      * Dual Connectivity support
      */
@@ -206,11 +207,6 @@ class LtePdcpBase : public cSimpleModule
      */
     void handleMessage(cMessage *msg) override;
 
-    /**
-     * Statistics recording
-     */
-    void finish() override;
-
     /*
      * Internal functions
      */
@@ -219,11 +215,6 @@ class LtePdcpBase : public cSimpleModule
      * getNodeId(): returns the ID of this node
      */
     MacNodeId getNodeId() { return nodeId_; }
-
-    /**
-     * getApplication(): determines the application type based on packet name
-     */
-    ApplicationType getApplication(cPacket *pkt);
 
     /**
      * getTrafficCategory(): determines the traffic category based on packet name
@@ -262,16 +253,7 @@ class LtePdcpBase : public cSimpleModule
      *
      * @param lteInfo Control Info
      */
-    virtual MacNodeId getDestId(inet::Ptr<FlowControlInfo> lteInfo) = 0;
-
-    /**
-     * getDirection() is used only on UEs and ENODEBs:
-     * - direction is downlink for ENODEB
-     * - direction is uplink for UE
-     *
-     * @return Direction of traffic
-     */
-    void setTrafficInformation(cPacket *pkt, inet::Ptr<FlowControlInfo> lteInfo);
+    virtual MacNodeId getNextHopNodeId(const Ipv4Address& destAddr, bool useNR, MacNodeId sourceId) = 0;
 
     /*
      * Upper Layer Handlers
@@ -342,14 +324,13 @@ class LtePdcpUe : public LtePdcpBase
 {
   protected:
 
-    MacNodeId getDestId(inet::Ptr<FlowControlInfo> lteInfo) override
+    MacNodeId getNextHopNodeId(const Ipv4Address& destAddr, bool useNR, MacNodeId sourceId) override
     {
         // UE is subject to handovers: master may change
         return binder_->getNextHop(nodeId_);
     }
 
   public:
-    void initialize(int stage) override;
     void deleteEntities(MacNodeId nodeId) override;
 };
 
@@ -361,10 +342,10 @@ class LtePdcpEnb : public LtePdcpBase
         delete lteInfo;
     }
 
-    MacNodeId getDestId(inet::Ptr<FlowControlInfo> lteInfo) override
+    MacNodeId getNextHopNodeId(const Ipv4Address& destAddr, bool useNR, MacNodeId sourceId) override
     {
         // destination id
-        MacNodeId destId = binder_->getMacNodeId(inet::Ipv4Address(lteInfo->getDstAddr()));
+        MacNodeId destId = binder_->getMacNodeId(destAddr);
         // master of this UE (myself)
         MacNodeId master = binder_->getNextHop(destId);
         if (master != nodeId_) {
@@ -382,7 +363,6 @@ class LtePdcpEnb : public LtePdcpBase
     }
 
   public:
-    void initialize(int stage) override;
     void deleteEntities(MacNodeId nodeId) override;
 };
 

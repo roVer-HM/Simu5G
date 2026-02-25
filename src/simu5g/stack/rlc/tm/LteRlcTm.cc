@@ -12,7 +12,11 @@
 #include <inet/common/ProtocolTag_m.h>
 
 #include "simu5g/stack/rlc/tm/LteRlcTm.h"
+#include "simu5g/stack/rlc/packet/LteRlcPdu_m.h"
 #include "simu5g/stack/mac/packet/LteMacSduRequest.h"
+#include "simu5g/stack/rlc/packet/LteRlcNewDataTag_m.h"
+#include "simu5g/stack/rlc/packet/PdcpTrackingTag_m.h"
+#include "simu5g/stack/pdcp/packet/LtePdcpPdu_m.h"
 
 namespace simu5g {
 
@@ -50,11 +54,15 @@ void LteRlcTm::handleUpperMessage(cPacket *pktAux)
         return;
     }
 
-    // build the PDU itself
-    auto rlcSdu = inet::makeShared<LteRlcSdu>();
-    auto rlcPdu = inet::makeShared<LteRlcPdu>();
-    pkt->insertAtFront(rlcSdu);
-    pkt->insertAtFront(rlcPdu);
+    // Extract sequence number from PDCP header
+    auto pdcpHeader = pkt->peekAtFront<LtePdcpHeader>();
+    unsigned int sequenceNumber = pdcpHeader->getSequenceNumber();
+
+    // Add PDCP tracking information
+    auto pdcpTag = pkt->addTag<PdcpTrackingTag>();
+    pdcpTag->setPdcpSequenceNumber(sequenceNumber);
+    pdcpTag->setOriginalPacketLength(pkt->getByteLength());
+
     pkt->addTagIfAbsent<inet::PacketProtocolTag>()->setProtocol(&LteProtocol::rlc);
 
     // buffer the PDU
@@ -65,13 +73,13 @@ void LteRlcTm::handleUpperMessage(cPacket *pktAux)
     emit(signal, 0.0);
 
     // create a message to notify the MAC layer that the queue contains new data
-    auto newDataPkt = inet::makeShared<LteRlcPduNewData>();
     // make a copy of the RLC SDU
     // the MAC will only be interested in the size of this packet
     auto pktDup = pkt->dup();
-    pktDup->insertAtFront(newDataPkt);
+    // add tag to indicate new data availability to MAC
+    pktDup->addTag<LteRlcNewDataTag>();
 
-    EV << "LteRlcTm::handleUpperMessage - Sending message " << newDataPkt->getName() << " to port TM_Sap_down$o\n";
+    EV << "LteRlcTm::handleUpperMessage - Sending new data indication to port TM_Sap_down$o\n";
     emit(sentPacketToLowerLayerSignal_, pktDup);
     send(pktDup, downOutGate_);
 }
@@ -113,14 +121,16 @@ void LteRlcTm::handleLowerMessage(cPacket *pkt)
  * Main functions
  */
 
-void LteRlcTm::initialize()
+void LteRlcTm::initialize(int stage)
 {
-    upInGate_ = gate("TM_Sap_up$i");
-    upOutGate_ = gate("TM_Sap_up$o");
-    downInGate_ = gate("TM_Sap_down$i");
-    downOutGate_ = gate("TM_Sap_down$o");
+    if (stage == inet::INITSTAGE_LOCAL) {
+        upInGate_ = gate("TM_Sap_up$i");
+        upOutGate_ = gate("TM_Sap_up$o");
+        downInGate_ = gate("TM_Sap_down$i");
+        downOutGate_ = gate("TM_Sap_down$o");
 
-    queueSize_ = par("queueSize");
+        queueSize_ = par("queueSize");
+    }
 }
 
 void LteRlcTm::handleMessage(cMessage *msg)
@@ -139,4 +149,3 @@ void LteRlcTm::handleMessage(cMessage *msg)
 }
 
 } //namespace
-

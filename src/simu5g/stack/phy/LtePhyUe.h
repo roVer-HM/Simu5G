@@ -16,7 +16,6 @@
 
 #include "simu5g/stack/ip2nic/Ip2Nic.h"
 #include "simu5g/stack/phy/LtePhyBase.h"
-#include "simu5g/stack/phy/das/DasFilter.h"
 #include "simu5g/stack/mac/LteMacUe.h"
 #include "simu5g/stack/rlc/um/LteRlcUm.h"
 #include "simu5g/stack/pdcp/LtePdcp.h"
@@ -26,7 +25,6 @@ namespace simu5g {
 
 using namespace omnetpp;
 
-class DasFilter;
 class LteDlFeedbackGenerator;
 
 class LtePhyUe : public LtePhyBase
@@ -63,14 +61,14 @@ class LtePhyUe : public LtePhyBase
      * Hysteresis threshold to evaluate handover: it introduces a small polarization to
      * avoid multiple subsequent handovers
      */
-    double hysteresisTh_;
+    double hysteresisTh_ = 0;
 
     /**
      * Value used to divide currentMasterRssi_ and create a hysteresisTh_
      * Use zero to have hysteresisTh_ == 0.
      */
     // TODO: bring it to ned par!
-    double hysteresisFactor_;
+    double hysteresisFactor_ = 10;
 
     /**
      * Time interval elapsing from the reception of the first handover broadcast message
@@ -81,7 +79,7 @@ class LtePhyUe : public LtePhyBase
      * (at bdcUpdateInterval_ seconds intervals).
      */
     // TODO: bring it to ned par!
-    double handoverDelta_;
+    double handoverDelta_ = 0.00001;
 
     // Time for completion of the handover procedure
     double handoverLatency_;
@@ -96,16 +94,6 @@ class LtePhyUe : public LtePhyBase
      */
     bool enableHandover_;
 
-    /**
-     * Pointer to the DAS Filter: used to call DAS functions
-     * when receiving broadcasts and to retrieve physical
-     * antenna properties on packet reception
-     */
-    DasFilter *das_ = nullptr;
-
-    /// Threshold for antenna association
-    // TODO: bring it to ned par!
-    double dasRssiThreshold_;
 
     opp_component_ptr<LteMacUe> mac_;
     inet::ModuleRefByPar<LteRlcUm> rlcUm_;
@@ -113,7 +101,7 @@ class LtePhyUe : public LtePhyBase
     inet::ModuleRefByPar<Ip2Nic> ip2nic_;
     inet::ModuleRefByPar<LteDlFeedbackGenerator> fbGen_;
 
-    simtime_t lastFeedback_;
+    simtime_t lastFeedback_ = 0;
 
     // Support to print average CQI at the end of the simulation
     std::vector<short int> cqiDlSamples_;
@@ -147,9 +135,10 @@ class LtePhyUe : public LtePhyBase
     virtual void triggerHandover();
     virtual void doHandover();
 
+    virtual void findCandidateEnb(MacNodeId& outCandidateMasterId, double& outCandidateMasterRssi);
+
   public:
     ~LtePhyUe() override;
-    DasFilter *getDasFilter();
     /**
      * Send feedback, called by feedback generator in DL
      */
@@ -173,4 +162,3 @@ class LtePhyUe : public LtePhyBase
 } //namespace
 
 #endif /* _LTE_AIRPHYUE_H_ */
-

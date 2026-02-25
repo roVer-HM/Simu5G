@@ -45,7 +45,7 @@ void LteMacUeD2D::initialize(int stage)
         if (pdcpType != "LtePdcpUeD2D" && pdcpType != "NrPdcpUe")
             throw cRuntimeError("LteMacUeD2D::initialize - %s module found, must be LtePdcpUeD2D or NrPdcpUe", pdcpType.c_str());
     }
-    if (stage == inet::INITSTAGE_NETWORK_LAYER) {
+    if (stage == INITSTAGE_SIMU5G_AMC_ATTACHUSER) {
         // get parameters
         usePreconfiguredTxParams_ = par("usePreconfiguredTxParams");
 
@@ -60,8 +60,6 @@ void LteMacUeD2D::initialize(int stage)
 
 // TODO remove it. UeCollector connection made in LteMacUe Initialize
         }
-        else
-            enb_ = nullptr;
     }
 }
 
@@ -122,16 +120,13 @@ void LteMacUeD2D::macPduMake(MacCid cid)
 
                 if (sizeBsr > 0) {
                     // Call the appropriate function to make a BSR for a D2D communication
+                    BsrType bsrType = bsrD2DMulticastTriggered_ ? D2D_MULTI_SHORT_BSR : D2D_SHORT_BSR;
+                    bsrD2DMulticastTriggered_ = false;
                     auto macPktBsr = makeBsr(sizeBsr);
                     auto info = macPktBsr->getTagForUpdate<UserControlInfo>();
+                    info->setPacketLcid(bsrType);
                     info->setCarrierFrequency(carrierFreq);
                     info->setUserTxParams(grant->getUserTxParams()->dup());
-                    if (bsrD2DMulticastTriggered_) {
-                        info->setLcid(D2D_MULTI_SHORT_BSR);
-                        bsrD2DMulticastTriggered_ = false;
-                    }
-                    else
-                        info->setLcid(D2D_SHORT_BSR);
 
                     // Add the created BSR to the PDU List
                     // select channel model for given carrier frequency
@@ -166,9 +161,9 @@ void LteMacUeD2D::macPduMake(MacCid cid)
                 Codeword cw = item.first.second;
 
                 // get the direction (UL/D2D/D2D_MULTI) and the corresponding destination ID
-                FlowControlInfo *lteInfo = &(connDescOut_.at(destCid).flowInfo);
-                MacNodeId destId = lteInfo->getDestId();
-                Direction dir = (Direction)lteInfo->getDirection();
+                FlowControlInfo *connInfo = &(connDescOut_.at(destCid).flowInfo);
+                MacNodeId destId = connInfo->getDestId();
+                Direction dir = (Direction)connInfo->getDirection();
 
                 std::pair<MacNodeId, Codeword> pktId = {destId, cw};
                 unsigned int sduPerCid = item.second;
@@ -196,7 +191,7 @@ void LteMacUeD2D::macPduMake(MacCid cid)
                     macPkt->addTagIfAbsent<UserControlInfo>()->setSourceId(getMacNodeId());
                     macPkt->addTagIfAbsent<UserControlInfo>()->setDestId(destId);
                     macPkt->addTagIfAbsent<UserControlInfo>()->setDirection(dir);
-                    macPkt->addTagIfAbsent<UserControlInfo>()->setLcid(SHORT_BSR);
+                    macPkt->addTagIfAbsent<UserControlInfo>()->setPacketLcid(SHORT_BSR);
                     macPkt->addTagIfAbsent<UserControlInfo>()->setCarrierFrequency(carrierFreq);
                     if (usePreconfiguredTxParams_)
                         macPkt->addTagIfAbsent<UserControlInfo>()->setUserTxParams(preconfiguredTxParams_->dup());
@@ -226,13 +221,14 @@ void LteMacUeD2D::macPduMake(MacCid cid)
                     // multicast support
                     // this trick gets the group ID from the MAC SDU and sets it in the MAC PDU
                     auto flowInfo = pkt->getTag<FlowControlInfo>();
-                    int32_t groupId = flowInfo->getMulticastGroupId();
-                    if (groupId >= 0) // for unicast, group id is -1
-                        macPkt->getTagForUpdate<UserControlInfo>()->setMulticastGroupId(groupId);
+                    MacNodeId groupId = flowInfo->getMulticastGroupId();
+                    if (groupId != NODEID_NONE) // for unicast, group id is -1
+                        macPkt->getTagForUpdate<UserControlInfo>()->setPacketMulticastGroupId(groupId);
 
                     drop(pkt);
 
                     auto macPdu = macPkt->removeAtFront<LteMacPdu>();
+
                     macPdu->pushSdu(pkt);
                     macPkt->insertAtFront(macPdu);
                     sduPerCid--;
@@ -779,7 +775,6 @@ UserTxParams *LteMacUeD2D::getPreconfiguredTxParams()
     txParams->writeTxMode(TRANSMIT_DIVERSITY);
     Rank ri = 1;                                              // rank for TxD is one
     txParams->writeRank(ri);
-    txParams->writePmi(intuniform(1, pow(ri, (double)2)));  // taken from LteFeedbackComputationRealistic::computeFeedback
 
     Cqi cqi = par("d2dCqi");
     if (cqi < 0 || cqi > 15) {
@@ -834,17 +829,17 @@ void LteMacUeD2D::macHandleD2DModeSwitch(cPacket *pktAux)
         std::vector<std::pair<MacCid, FlowControlInfo>> newConnections;
 
         for (const auto& [cid, connDesc] : connDescOut_) {
-            const auto& lteInfo = connDesc.flowInfo;
-            if (lteInfo.getD2dRxPeerId() == peerId && (Direction)lteInfo.getDirection() == oldDirection) {
-                oldConnections.emplace_back(cid, lteInfo);
+            const auto& connInfo = connDesc.flowInfo;
+            if (connInfo.getD2dRxPeerId() == peerId && (Direction)connInfo.getDirection() == oldDirection) {
+                oldConnections.emplace_back(cid, connInfo);
             }
-            else if (lteInfo.getD2dRxPeerId() == peerId && (Direction)lteInfo.getDirection() == newDirection) {
-                newConnections.emplace_back(cid, lteInfo);
+            else if (connInfo.getD2dRxPeerId() == peerId && (Direction)connInfo.getDirection() == newDirection) {
+                newConnections.emplace_back(cid, connInfo);
             }
         }
 
         // Phase 2: Process old connections (safe to modify containers now)
-        for (const auto& [cid, lteInfo] : oldConnections) {
+        for (const auto& [cid, connInfo] : oldConnections) {
             EV << NOW << " LteMacUeD2D::macHandleD2DModeSwitch - found old connection with cid " << cid << ", erasing buffered data" << endl;
             if (oldDirection != newDirection) {
                 if (switchPkt->getClearRlcBuffer()) {
@@ -885,7 +880,7 @@ void LteMacUeD2D::macHandleD2DModeSwitch(cPacket *pktAux)
             auto switchPkt_dup = pktDup->removeAtFront<D2DModeSwitchNotification>();
             switchPkt_dup->setOldConnection(true);
             pktDup->insertAtFront(switchPkt_dup);
-            *(pktDup->addTagIfAbsent<FlowControlInfo>()) = lteInfo;
+            *(pktDup->addTagIfAbsent<FlowControlInfo>()) = connInfo;
             sendUpperPackets(pktDup);
 
             if (oldDirection != newDirection && switchPkt->getClearRlcBuffer()) {
@@ -905,7 +900,7 @@ void LteMacUeD2D::macHandleD2DModeSwitch(cPacket *pktAux)
         }
 
         // Phase 3: Process new connections
-        for (const auto& [cid, lteInfo] : newConnections) {
+        for (const auto& [cid, connInfo] : newConnections) {
             EV << NOW << " LteMacUeD2D::macHandleD2DModeSwitch - send switch signal to the RLC TX entity corresponding to the new mode, cid " << cid << endl;
             if (oldDirection != newDirection) {
                 auto pktDup = pkt->dup();
@@ -913,7 +908,7 @@ void LteMacUeD2D::macHandleD2DModeSwitch(cPacket *pktAux)
                 switchPkt_dup->setOldConnection(false);
                 // switchPkt_dup->setSchedulingPriority(1);        // always after the old mode
                 pktDup->insertAtFront(switchPkt_dup);
-                *(pktDup->addTagIfAbsent<FlowControlInfo>()) = lteInfo;
+                *(pktDup->addTagIfAbsent<FlowControlInfo>()) = connInfo;
                 sendUpperPackets(pktDup);
             }
         }
@@ -929,17 +924,17 @@ void LteMacUeD2D::macHandleD2DModeSwitch(cPacket *pktAux)
         std::vector<std::pair<MacCid, FlowControlInfo>> oldRxConnections;
         std::vector<std::pair<MacCid, FlowControlInfo>> newRxConnections;
 
-        for (const auto& [cid, lteInfo] : connDescIn_) {
-            if (lteInfo.getD2dTxPeerId() == peerId && (Direction)lteInfo.getDirection() == oldDirection) {
-                oldRxConnections.emplace_back(cid, lteInfo);
+        for (const auto& [cid, connInfo] : connDescIn_) {
+            if (connInfo.getD2dTxPeerId() == peerId && (Direction)connInfo.getDirection() == oldDirection) {
+                oldRxConnections.emplace_back(cid, connInfo);
             }
-            else if (lteInfo.getD2dTxPeerId() == peerId && (Direction)lteInfo.getDirection() == newDirection) {
-                newRxConnections.emplace_back(cid, lteInfo);
+            else if (connInfo.getD2dTxPeerId() == peerId && (Direction)connInfo.getDirection() == newDirection) {
+                newRxConnections.emplace_back(cid, connInfo);
             }
         }
 
         // Phase 2: Process old RX connections
-        for (const auto& [cid, lteInfo] : oldRxConnections) {
+        for (const auto& [cid, connInfo] : oldRxConnections) {
             EV << NOW << " LteMacUeD2D::macHandleD2DModeSwitch - found old connection with cid " << cid << ", send signal to the RLC RX entity" << endl;
             if (oldDirection != newDirection) {
                 if (switchPkt->getInterruptHarq()) {
@@ -969,20 +964,20 @@ void LteMacUeD2D::macHandleD2DModeSwitch(cPacket *pktAux)
                 auto switchPkt_dup = pktDup->removeAtFront<D2DModeSwitchNotification>();
                 switchPkt_dup->setOldConnection(true);
                 pktDup->insertAtFront(switchPkt_dup);
-                *(pktDup->addTagIfAbsent<FlowControlInfo>()) = lteInfo;
+                *(pktDup->addTagIfAbsent<FlowControlInfo>()) = connInfo;
                 sendUpperPackets(pktDup);
             }
         }
 
         // Phase 3: Process new RX connections
-        for (const auto& [cid, lteInfo] : newRxConnections) {
+        for (const auto& [cid, connInfo] : newRxConnections) {
             EV << NOW << " LteMacUeD2D::macHandleD2DModeSwitch - found new connection with cid " << cid << ", send signal to the RLC RX entity" << endl;
             if (oldDirection != newDirection) {
                 auto pktDup = pkt->dup();
                 auto switchPkt_dup = pktDup->removeAtFront<D2DModeSwitchNotification>();
                 switchPkt_dup->setOldConnection(false);
                 pktDup->insertAtFront(switchPkt_dup);
-                *(pktDup->addTagIfAbsent<FlowControlInfo>()) = lteInfo;
+                *(pktDup->addTagIfAbsent<FlowControlInfo>()) = connInfo;
                 sendUpperPackets(pktDup);
             }
         }

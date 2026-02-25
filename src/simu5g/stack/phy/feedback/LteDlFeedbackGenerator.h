@@ -16,7 +16,6 @@
 
 #include "simu5g/common/cellInfo/CellInfo.h"
 #include "simu5g/common/LteCommon.h"
-#include "simu5g/stack/phy/das/DasFilter.h"
 #include "simu5g/stack/phy/feedback/LteFeedback.h"
 #include "simu5g/common/timer/TTimer.h"
 #include "simu5g/common/timer/TTimerMsg_m.h"
@@ -27,7 +26,6 @@ namespace simu5g {
 
 using namespace omnetpp;
 
-class DasFilter;
 class LtePhyUe;
 
 /**
@@ -47,7 +45,6 @@ class LteDlFeedbackGenerator : public cSimpleModule
     FeedbackType fbType_;               /// feedback type (ALLBANDS, PREFERRED, WIDEBAND)
     RbAllocationType rbAllocationType_; /// resource allocation type
     // LteFeedbackComputation* lteFeedbackComputation_; // Object used to compute the feedback
-    FeedbackGeneratorType generatorType_;
     /**
      * NOTE: fbPeriod_ MUST be greater than fbDelay_,
      * otherwise we have overlapping transmissions
@@ -65,7 +62,6 @@ class LteDlFeedbackGenerator : public cSimpleModule
     inet::ModuleRefByPar<LtePhyUe> phy_;
 
     // cellInfo parameters
-    std::map<Remote, int> antennaCws_; /// number of antennas per remote
     int numPreferredBands_;           /// number of preferred bands to use (meaningful only in PREFERRED mode)
     int numBands_;                      /// number of cell bands
 
@@ -104,6 +100,8 @@ class LteDlFeedbackGenerator : public cSimpleModule
      */
     void initialize(int stage) override;
 
+    int numInitStages() const override { return inet::NUM_INIT_STAGES; }
+
     /**
      * Manage self messages for sensing and transmission.
      * @param msg self message for sensing or transmission
@@ -114,7 +112,6 @@ class LteDlFeedbackGenerator : public cSimpleModule
      * Channel sensing
      */
     void sensing(FbPeriodicity per);
-    int numInitStages() const override { return inet::INITSTAGE_LINK_LAYER + 1; }
 
   public:
 
@@ -147,4 +144,3 @@ class LteDlFeedbackGenerator : public cSimpleModule
 } //namespace
 
 #endif
-

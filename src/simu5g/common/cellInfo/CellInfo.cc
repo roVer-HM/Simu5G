@@ -24,12 +24,6 @@ using namespace std;
 
 Define_Module(CellInfo);
 
-
-CellInfo::~CellInfo()
-{
-    delete ruSet_;
-}
-
 void CellInfo::initialize(int stage)
 {
     if (stage == inet::INITSTAGE_LOCAL) {
@@ -48,80 +42,25 @@ void CellInfo::initialize(int stage)
         signalDl_ = par("signalDl");
         signalUl_ = par("signalUl");
         binder_.reference(this, "binderModule", true);
-    }
-    if (stage == inet::INITSTAGE_LOCAL + 1) {
+
         // get the total number of bands in the system
         totalBands_ = binder_->getTotalBands();
 
-        numRus_ = par("numRus");
-
         numPreferredBands_ = par("numPreferredBands");
-
-        if (numRus_ > NUM_RUS)
-            throw cRuntimeError("The number of antennas specified exceeds the limit of %d", NUM_RUS);
 
         cModule *host = inet::getContainingNode(this);
 
         // register the containing eNB to the binder
         cellId_ = MacNodeId(host->par("macCellId").intValue());
-
-        int ruRange = par("ruRange");
-        double nodebTxPower = host->par("txPower");
-
-        // first RU to be registered is the MACRO
-        ruSet_->addRemoteAntenna(nodeX_, nodeY_, nodebTxPower);
-
-        // REFACTORING: has no effect, as long as numRus_ == 0
-        // deploy RUs
-        deployRu(nodeX_, nodeY_, numRus_, ruRange);
+        ASSERT(cellId_ != MacNodeId(-1));  // i.e. already set programmatically
 
         // MCS scaling factor
-        calculateMCSScale(&mcsScaleUl_, &mcsScaleDl_);
-
-        createAntennaCwMap();
+        calculateMcsScale();
     }
 }
 
-void CellInfo::calculateNodePosition(double centerX, double centerY, int nTh,
-        int totalNodes, int range, double startingAngle, double *xPos,
-        double *yPos)
-{
-    if (totalNodes == 0)
-        throw cRuntimeError("CellInfo::calculateNodePosition: divide by 0");
-    // radians (minus sign because position 0,0 is top-left, not bottom-left)
-    double theta = -startingAngle * M_PI / 180;
 
-    double thetaSpacing = (2 * M_PI) / totalNodes;
-    // angle of n-th node
-    theta += nTh * thetaSpacing;
-    double x = centerX + (range * cos(theta));
-    double y = centerY + (range * sin(theta));
-
-    *xPos = (x < pgnMinX_) ? pgnMinX_ : (x > pgnMaxX_) ? pgnMaxX_ : x;
-    *yPos = (y < pgnMinY_) ? pgnMinY_ : (y > pgnMaxY_) ? pgnMaxY_ : y;
-
-    EV << NOW << " CellInfo::calculateNodePosition: Computed node position "
-       << *xPos << " , " << *yPos << std::endl;
-}
-
-void CellInfo::deployRu(double nodeX, double nodeY, int numRu, int ruRange)
-{
-    if (numRu == 0)
-        return;
-    double x = 0;
-    double y = 0;
-    double angle = par("ruStartingAngle");
-    std::string txPowersString = par("ruTxPower");
-    int *txPowers = new int[numRu];
-    parseStringToIntArray(txPowersString, txPowers, numRu, 0);
-    for (int i = 0; i < numRu; i++) {
-        calculateNodePosition(nodeX, nodeY, i, numRu, ruRange, angle, &x, &y);
-        ruSet_->addRemoteAntenna(x, y, (double)txPowers[i]);
-    }
-    delete[] txPowers;
-}
-
-void CellInfo::calculateMCSScale(double *mcsUl, double *mcsDl)
+void CellInfo::calculateMcsScale()
 {
     // RB subcarriers * (TTI Symbols - Signalling Symbols) - pilot REs
     int ulRbSubcarriers = par("rbyUl");
@@ -135,11 +74,12 @@ void CellInfo::calculateMCSScale(double *mcsUl, double *mcsDl)
     int ulPilotRe = par("rbPilotUl");
     int dlPilotRe = par("rbPilotDl");
 
-    *mcsUl = ulRbSubcarriers * (ulRbSymbols - ulSigSymbols) - ulPilotRe;
-    *mcsDl = dlRbSubCarriers * (dlRbSymbols - dlSigSymbols) - dlPilotRe;
+    mcsScaleUl_ = ulRbSubcarriers * (ulRbSymbols - ulSigSymbols) - ulPilotRe;
+    mcsScaleDl_ = dlRbSubCarriers * (dlRbSymbols - dlSigSymbols) - dlPilotRe;
 }
 
-void CellInfo::updateMCSScale(double *mcs, double signalRe,
+// unused:
+void CellInfo::updateMCSScale(double& mcs, double signalRe,
         double signalCarriers, Direction dir)
 {
     // RB subcarriers * (TTI Symbols - Signalling Symbols) - pilot REs
@@ -152,21 +92,7 @@ void CellInfo::updateMCSScale(double *mcs, double signalRe,
     int sigSymbols = signalRe;
     int pilotRe = signalCarriers;
 
-    *mcs = rbSubcarriers * (rbSymbols - sigSymbols) - pilotRe;
-}
-
-void CellInfo::createAntennaCwMap()
-{
-    std::string cws = par("antennaCws");
-    // values for the RUs including the MACRO
-    int dim = numRus_ + 1;
-    int *values = new int[dim];
-    // default for missing values is 1
-    parseStringToIntArray(cws, values, dim, 1);
-    for (int i = 0; i < dim; i++) {
-        antennaCws_[(Remote)i] = values[i];
-    }
-    delete[] values;
+    mcs = rbSubcarriers * (rbSymbols - sigSymbols) - pilotRe;
 }
 
 void CellInfo::detachUser(MacNodeId nodeId)
@@ -174,19 +100,10 @@ void CellInfo::detachUser(MacNodeId nodeId)
     auto pt = uePosition.find(nodeId);
     if (pt != uePosition.end())
         uePosition.erase(pt);
-
-    auto lt = lambdaMap_.find(nodeId);
-    if (lt != lambdaMap_.end())
-        lambdaMap_.erase(lt);
 }
 
 void CellInfo::attachUser(MacNodeId nodeId)
 {
-    // add UE to cellInfo structures (lambda maps)
-    // position will be added by the eNB while computing feedback
-
-    int index = intuniform(0, binder_->phyPisaData.maxChannel() - 1);
-    lambdaInit(nodeId, index);
 }
 
 unsigned int CellInfo::getNumBands()

@@ -16,6 +16,7 @@
 #include <inet/networklayer/common/NetworkInterface.h>
 #include "simu5g/common/LteCommon.h"
 #include "simu5g/common/LteControlInfo.h"
+#include "simu5g/common/LteControlInfoTags_m.h"
 #include "simu5g/stack/handoverManager/LteHandoverManager.h"
 #include "simu5g/common/binder/Binder.h"
 #include "simu5g/stack/ip2nic/SplitBearersTable.h"
@@ -35,20 +36,20 @@ typedef std::pair<inet::Ipv4Address, inet::Ipv4Address> AddressPair;
 class Ip2Nic : public cSimpleModule
 {
   protected:
-    RanNodeType nodeType_;      // node type: can be ENODEB, GNODEB, UE
+    RanNodeType nodeType_;      // UE or NODEB
 
     // reference to the binder
     inet::ModuleRefByPar<Binder> binder_;
 
     // LTE MAC node id of this node
-    MacNodeId nodeId_;
+    MacNodeId nodeId_ = NODEID_NONE;
     // NR MAC node id of this node (if enabled)
-    MacNodeId nrNodeId_;
+    MacNodeId nrNodeId_ = NODEID_NONE;
 
     // LTE MAC node id of this node's master
-    MacNodeId masterId_;
+    MacNodeId servingNodeId_ = NODEID_NONE;
     // NR MAC node id of this node's master (if enabled)
-    MacNodeId nrMasterId_;
+    MacNodeId nrServingNodeId_ = NODEID_NONE;
 
     /*
      * Handover support
@@ -65,7 +66,7 @@ class Ip2Nic : public cSimpleModule
     std::map<MacNodeId, IpDatagramQueue> hoFromX2_;
     std::map<MacNodeId, IpDatagramQueue> hoFromIp_;
 
-    bool ueHold_;
+    bool ueHold_ = false;
     IpDatagramQueue ueHoldFromIp_;
 
     /*
@@ -128,10 +129,10 @@ class Ip2Nic : public cSimpleModule
     // To change the policy, change the implementation of the Ip2Nic::markPacket() function
     //
     // TODO use a better policy
-    bool markPacket(inet::Ptr<FlowControlInfo> ci);
+    bool markPacket(inet::Ipv4Address srcAddr, inet::Ipv4Address dstAddr, uint16_t typeOfService, bool& useNR);
 
     void initialize(int stage) override;
-    int numInitStages() const override { return inet::INITSTAGE_LAST; }
+    int numInitStages() const override { return inet::NUM_INIT_STAGES; }
     void handleMessage(cMessage *msg) override;
     void finish() override;
 

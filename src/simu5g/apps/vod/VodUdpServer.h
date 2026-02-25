@@ -14,7 +14,6 @@
 
 #include <fstream>
 
-#include <inet/transportlayer/contract/udp/UdpControlInfo.h>
 #include <inet/transportlayer/contract/udp/UdpSocket.h>
 #include <inet/networklayer/common/L3AddressResolver.h>
 
@@ -54,7 +53,7 @@ class VodUdpServer : public cSimpleModule
 
     /* Statistics */
 
-    unsigned int numStreams;  // number of video streams served
+    unsigned int numStreams = 0;  // number of video streams served
     unsigned long numPkSent;  // total number of packets sent
 
     struct tracerec
@@ -100,4 +99,3 @@ class VodUdpServer : public cSimpleModule
 } //namespace
 
 #endif
-

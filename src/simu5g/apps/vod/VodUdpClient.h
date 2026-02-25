@@ -19,7 +19,6 @@
 #include "simu5g/common/LteDefs.h"
 #include "simu5g/apps/vod/VoDPacket_m.h"
 #include "simu5g/apps/vod/VoDUDPStruct.h"
-#include <inet/transportlayer/contract/udp/UdpControlInfo.h>
 #include <inet/transportlayer/contract/udp/UdpSocket.h>
 #include <inet/networklayer/common/L3AddressResolver.h>
 
@@ -31,7 +30,7 @@ class VodUdpClient : public cSimpleModule
 {
     inet::UdpSocket socket;
     std::fstream outfile;
-    unsigned int totalRcvdBytes_;
+    unsigned int totalRcvdBytes_ = 0;
 
   public:
     static simsignal_t tptLayer0Signal_;

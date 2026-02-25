@@ -31,6 +31,7 @@
 #include "simu5g/stack/mac/LteMacBase.h"
 #include "simu5g/common/binder/Binder.h"
 #include "simu5g/common/cellInfo/CellInfo.h"
+#include "simu5g/common/LteControlInfoTags_m.h"
 
 namespace simu5g {
 
@@ -50,50 +51,51 @@ void Ip2Nic::initialize(int stage)
 
         hoManager_.reference(this, "handoverManagerModule", false);
 
-        ueHold_ = false;
-
         binder_.reference(this, "binderModule", true);
 
         NetworkInterface *nic = getContainingNicModule(this);
         dualConnectivityEnabled_ = nic->par("dualConnectivityEnabled").boolValue();
         if (dualConnectivityEnabled_)
             sbTable_ = new SplitBearersTable();
-
-        if (nodeType_ == ENODEB || nodeType_ == GNODEB) {
+    }
+    else if (stage == INITSTAGE_SIMU5G_REGISTRATIONS) {
+        if (nodeType_ == NODEB) {
             // TODO: not so elegant
             cModule *bs = getContainingNode(this);
-            MacNodeId masterId = MacNodeId(bs->par("masterId").intValue());
-            MacNodeId cellId = binder_->registerNode(bs, nodeType_, masterId);
-            nodeId_ = cellId;
-            nrNodeId_ = NODEID_NONE;
+            nodeId_ = MacNodeId(bs->par("macNodeId").intValue());
+            bool isNr = bs->par("nodeType").stdstringValue() == "GNODEB";
+            binder_->registerNode(nodeId_, bs, nodeType_, isNr);
 
             // display node ID above node icon
             bs->getDisplayString().setTagArg("t", 0, opp_stringf("nodeId=%d", nodeId_).c_str());
         }
-    }
-    else if (stage == INITSTAGE_PHYSICAL_ENVIRONMENT) {
-        if (nodeType_ == ENODEB || nodeType_ == GNODEB) {
-            registerInterface();
-        }
         else if (nodeType_ == UE) {
             cModule *ue = getContainingNode(this);
-
-            masterId_ = MacNodeId(ue->par("masterId").intValue());
-            nodeId_ = binder_->registerNode(ue, nodeType_, masterId_);
+            servingNodeId_ = MacNodeId(ue->par("servingNodeId").intValue());
+            nodeId_ = MacNodeId(ue->par("macNodeId").intValue());
+            binder_->registerNode(nodeId_, ue, nodeType_, false);
             ue->getDisplayString().setTagArg("t", 0, opp_stringf("nodeId=%d", nodeId_).c_str());
 
-            if (ue->hasPar("nrMasterId") && ue->par("nrMasterId").intValue() != 0) { // register also the NR MacNodeId
-                nrMasterId_ = MacNodeId(ue->par("nrMasterId").intValue());
-                nrNodeId_ = binder_->registerNode(ue, nodeType_, nrMasterId_, true);
+            if (ue->hasPar("nrServingNodeId") && ue->par("nrServingNodeId").intValue() != 0) { // register also the NR MacNodeId
+                nrServingNodeId_ = MacNodeId(ue->par("nrServingNodeId").intValue());
+                nrNodeId_ = MacNodeId(ue->par("nrMacNodeId").intValue());
+                binder_->registerNode(nrNodeId_, ue, nodeType_, true);
                 ue->getDisplayString().setTagArg("t", 0, opp_stringf("nodeId=%d/%d", nodeId_, nrNodeId_).c_str());
             }
-            else
-                nrNodeId_ = NODEID_NONE;
-
-            registerInterface();
         }
-        else {
-            throw cRuntimeError("Unhandled node type: %i", nodeType_);
+
+        registerInterface();
+    }
+    else if (stage == INITSTAGE_SIMU5G_NODE_RELATIONSHIPS) {
+        if (nodeType_ == NODEB) {
+            cModule *bs = getContainingNode(this);
+            MacNodeId masterId = MacNodeId(bs->par("masterId").intValue());
+            binder_->registerMasterNode(masterId, nodeId_);  // note: even if masterId == NODEID_NONE!
+        }
+        if (nodeType_ == UE) {
+            binder_->registerServingNode(servingNodeId_, nodeId_);
+            if (nrNodeId_ != NODEID_NONE)
+                binder_->registerServingNode(nrServingNodeId_, nrNodeId_);
         }
     }
     else if (stage == inet::INITSTAGE_STATIC_ROUTING) {
@@ -116,7 +118,7 @@ void Ip2Nic::initialize(int stage)
 
                 // workaround for nodes using the HostAutoConfigurator:
                 // Since the HostAutoConfigurator calls setBroadcast(true) for all
-                // interfaces in setupNetworking called in INITSTAGE_NETWORK_CONFIGURATION
+                // interfaces in setupNetworking called in INITSTAGE_SIMU5G_NETWORK_CONFIGURATION
                 // we must reset it to false since the cellular NIC does not support broadcasts
                 // at the moment
                 networkIf->setBroadcast(false);
@@ -130,7 +132,7 @@ void Ip2Nic::initialize(int stage)
 
 void Ip2Nic::handleMessage(cMessage *msg)
 {
-    if (nodeType_ == ENODEB || nodeType_ == GNODEB) {
+    if (nodeType_ == NODEB) {
         // message from IP Layer: send to stack
         if (msg->getArrivalGate()->isName("upperLayerIn")) {
             auto ipDatagram = check_and_cast<Packet *>(msg);
@@ -177,7 +179,7 @@ void Ip2Nic::handleMessage(cMessage *msg)
 void Ip2Nic::setNodeType(std::string s)
 {
     nodeType_ = aToNodeType(s);
-    EV << "Node type: " << s << " -> " << nodeType_ << endl;
+    EV << "Node type: " << s << endl;
 }
 
 void Ip2Nic::fromIpUe(Packet *datagram)
@@ -195,7 +197,7 @@ void Ip2Nic::fromIpUe(Packet *datagram)
         ueHoldFromIp_.push_back(datagram);
     }
     else {
-        if (masterId_ == NODEID_NONE && nrMasterId_ == NODEID_NONE) { // UE is detached
+        if (servingNodeId_ == NODEID_NONE && nrServingNodeId_ == NODEID_NONE) { // UE is detached
             EV << "Ip2Nic::fromIpUe - UE is not attached to any serving node. Delete packet." << endl;
             delete datagram;
         }
@@ -210,36 +212,25 @@ void Ip2Nic::toStackUe(Packet *pkt)
     auto srcAddr = ipHeader->getSrcAddress();
     auto destAddr = ipHeader->getDestAddress();
     short int tos = ipHeader->getTypeOfService();
-    int headerSize = ipHeader->getHeaderLength().get();
-    int transportProtocol = ipHeader->getProtocolId();
 
     // TODO: Add support for IPv6 (=> see L3Tools.cc of INET)
 
-    // inspect packet depending on the transport protocol type
-    // TODO: needs refactoring (redundant code, see toStackBs())
-    if (transportProtocol == IP_PROT_TCP) {
-        auto tcpHeader = pkt->peekDataAt<tcp::TcpHeader>(ipHeader->getChunkLength());
-        headerSize += B(tcpHeader->getHeaderLength()).get();
-    }
-    else if (transportProtocol == IP_PROT_UDP) {
-        headerSize += inet::UDP_HEADER_LENGTH.get();
-    }
-    else {
-        //TODO: throw cRuntimeError("Unknown transport protocol id %d in packet %s", transportProtocol, pkt->getName());
-        EV_ERROR << "Unknown transport protocol id " << transportProtocol << " in packet " << pkt->getName() << std::endl;
-    }
-
-    pkt->addTagIfAbsent<FlowControlInfo>()->setSrcAddr(srcAddr.getInt());
-    pkt->addTagIfAbsent<FlowControlInfo>()->setDstAddr(destAddr.getInt());
-    pkt->addTagIfAbsent<FlowControlInfo>()->setHeaderSize(headerSize);
-    pkt->addTagIfAbsent<FlowControlInfo>()->setTypeOfService(tos);
+    auto ipFlowInd = pkt->addTagIfAbsent<IpFlowInd>();
+    ipFlowInd->setSrcAddr(srcAddr);
+    ipFlowInd->setDstAddr(destAddr);
+    ipFlowInd->setTypeOfService(tos);
     printControlInfo(pkt);
 
     // mark packet for using NR
-    if (!markPacket(pkt->getTagForUpdate<FlowControlInfo>())) {
+    bool useNR;
+    if (!markPacket(srcAddr, destAddr, tos, useNR)) {
         EV << "Ip2Nic::toStackUe - UE is not attached to any serving node. Delete packet." << endl;
         delete pkt;
+        return;
     }
+
+    // Set useNR on the packet control info
+    pkt->addTagIfAbsent<TechnologyReq>()->setUseNR(useNR);
 
     //** Send datagram to LTE stack or LteIp peer **
     send(pkt, stackGateOut_);
@@ -317,40 +308,25 @@ void Ip2Nic::toStackBs(Packet *pkt)
 {
     EV << "Ip2Nic::toStackBs - packet is forwarded to stack" << endl;
     auto ipHeader = pkt->peekAtFront<Ipv4Header>();
-    int transportProtocol = ipHeader->getProtocolId();
     auto srcAddr = ipHeader->getSrcAddress();
     auto destAddr = ipHeader->getDestAddress();
     short int tos = ipHeader->getTypeOfService();
-    int headerSize = ipHeader->getHeaderLength().get();
-
-    switch (transportProtocol) {
-        case IP_PROT_TCP: {
-            auto tcpHeader = pkt->peekDataAt<tcp::TcpHeader>(ipHeader->getChunkLength());
-            headerSize += B(tcpHeader->getHeaderLength()).get();
-            break;
-        }
-        case IP_PROT_UDP: {
-            headerSize += inet::UDP_HEADER_LENGTH.get();
-            break;
-        }
-        default: {
-            //TODO: throw cRuntimeError("Unknown transport protocol id %d in packet %s", transportProtocol, pkt->getName());
-            EV_ERROR << "Unknown transport protocol id " << transportProtocol << " in packet " << pkt->getName() << std::endl;
-        }
-    }
 
     // prepare flow info for NIC
-    pkt->addTagIfAbsent<FlowControlInfo>()->setSrcAddr(srcAddr.getInt());
-    pkt->addTagIfAbsent<FlowControlInfo>()->setDstAddr(destAddr.getInt());
-    pkt->addTagIfAbsent<FlowControlInfo>()->setTypeOfService(tos);
-    pkt->addTagIfAbsent<FlowControlInfo>()->setHeaderSize(headerSize);
+    auto ipFlowInd = pkt->addTagIfAbsent<IpFlowInd>();
+    ipFlowInd->setSrcAddr(srcAddr);
+    ipFlowInd->setDstAddr(destAddr);
+    ipFlowInd->setTypeOfService(tos);
 
     // mark packet for using NR
-    if (!markPacket(pkt->getTagForUpdate<FlowControlInfo>())) {
+    bool useNR;
+    if (!markPacket(srcAddr, destAddr, tos, useNR)) {
         EV << "Ip2Nic::toStackBs - UE is not attached to any serving node. Delete packet." << endl;
         delete pkt;
     }
     else {
+        // Set useNR on the packet control info
+        pkt->addTagIfAbsent<TechnologyReq>()->setUseNR(useNR);
         printControlInfo(pkt);
         send(pkt, stackGateOut_);
     }
@@ -358,9 +334,9 @@ void Ip2Nic::toStackBs(Packet *pkt)
 
 void Ip2Nic::printControlInfo(Packet *pkt)
 {
-    EV << "Src IP : " << Ipv4Address(pkt->getTag<FlowControlInfo>()->getSrcAddr()) << endl;
-    EV << "Dst IP : " << Ipv4Address(pkt->getTag<FlowControlInfo>()->getDstAddr()) << endl;
-    EV << "ToS : " << pkt->getTag<FlowControlInfo>()->getTypeOfService() << endl;
+    EV << "Src IP : " << pkt->getTag<IpFlowInd>()->getSrcAddr() << endl;
+    EV << "Dst IP : " << pkt->getTag<IpFlowInd>()->getDstAddr() << endl;
+    EV << "ToS : " << pkt->getTag<IpFlowInd>()->getTypeOfService() << endl;
 }
 
 void Ip2Nic::registerInterface()
@@ -390,27 +366,21 @@ void Ip2Nic::registerInterface()
 void Ip2Nic::registerMulticastGroups()
 {
     // get all the multicast addresses where the node is enrolled
-    NetworkInterface *iface;
     IInterfaceTable *ift = getModuleFromPar<IInterfaceTable>(par("interfaceTableModule"), this);
-    if (!ift)
-        return;
-    iface = ift->findInterfaceByName(par("interfaceName").stdstringValue().c_str());
+    NetworkInterface *iface = ift->findInterfaceByName(par("interfaceName").stdstringValue().c_str());
     unsigned int numOfAddresses = iface->getProtocolData<Ipv4InterfaceData>()->getNumOfJoinedMulticastGroups();
 
     for (unsigned int i = 0; i < numOfAddresses; ++i) {
         Ipv4Address addr = iface->getProtocolData<Ipv4InterfaceData>()->getJoinedMulticastGroup(i);
-        // get the group id and add it to the binder
-        uint32_t address = addr.getInt();
-        uint32_t mask = ~((uint32_t)255 << 24);      // 00000000 11111111 11111111 11111111
-        uint32_t groupId = address & mask;
-        binder_->joinMulticastGroup(nodeId_, groupId);
-        // register also the NR stack, if any
+        MacNodeId multicastDestId = binder_->getOrAssignDestIdForMulticastAddress(addr);
+        // register in the LTE and also the NR stack, if any
+        binder_->joinMulticastGroup(nodeId_, multicastDestId);
         if (nrNodeId_ != NODEID_NONE)
-            binder_->joinMulticastGroup(nrNodeId_, groupId);
+            binder_->joinMulticastGroup(nrNodeId_, multicastDestId);
     }
 }
 
-bool Ip2Nic::markPacket(inet::Ptr<FlowControlInfo> ci)
+bool Ip2Nic::markPacket(inet::Ipv4Address srcAddr, inet::Ipv4Address dstAddr, uint16_t typeOfService, bool& useNR)
 {
     // In the current version, the Ip2Nic module of the master eNB (the UE) selects which path
     // to follow based on the Type of Service (TOS) field:
@@ -423,36 +393,36 @@ bool Ip2Nic::markPacket(inet::Ptr<FlowControlInfo> ci)
     // TODO use a better policy
     // TODO make it configurable from INI or XML?
 
-    if (nodeType_ == ENODEB || nodeType_ == GNODEB) {
-        MacNodeId ueId = binder_->getMacNodeId((Ipv4Address)ci->getDstAddr());
-        MacNodeId nrUeId = binder_->getNrMacNodeId((Ipv4Address)ci->getDstAddr());
+    if (nodeType_ == NODEB) {
+        MacNodeId ueId = binder_->getMacNodeId(dstAddr);
+        MacNodeId nrUeId = binder_->getNrMacNodeId(dstAddr);
         bool ueLteStack = (binder_->getNextHop(ueId) != NODEID_NONE);
         bool ueNrStack = (binder_->getNextHop(nrUeId) != NODEID_NONE);
 
-        if (dualConnectivityEnabled_ && ueLteStack && ueNrStack && ci->getTypeOfService() >= 20) { // use split bearer TODO fix threshold
+        if (dualConnectivityEnabled_ && ueLteStack && ueNrStack && typeOfService >= 20) { // use split bearer TODO fix threshold
             // even packets go through the LTE eNodeB
             // odd packets go through the gNodeB
 
             int sentPackets;
-            if ((sentPackets = sbTable_->find_entry(ci->getSrcAddr(), ci->getDstAddr(), ci->getTypeOfService())) < 0)
-                sentPackets = sbTable_->create_entry(ci->getSrcAddr(), ci->getDstAddr(), ci->getTypeOfService());
+            if ((sentPackets = sbTable_->find_entry(srcAddr.getInt(), dstAddr.getInt(), typeOfService)) < 0)
+                sentPackets = sbTable_->create_entry(srcAddr.getInt(), dstAddr.getInt(), typeOfService);
 
             if (sentPackets % 2 == 0)
-                ci->setUseNR(false);
+                useNR = false;
             else
-                ci->setUseNR(true);
+                useNR = true;
         }
         else {
             if (ueLteStack && ueNrStack) {
-                if (ci->getTypeOfService() >= 10)                                                     // use secondary cell group bearer TODO fix threshold
-                    ci->setUseNR(true);
+                if (typeOfService >= 10)                                                     // use secondary cell group bearer TODO fix threshold
+                    useNR = true;
                 else                                                  // use master cell group bearer
-                    ci->setUseNR(false);
+                    useNR = false;
             }
             else if (ueLteStack)
-                ci->setUseNR(false);
+                useNR = false;
             else if (ueNrStack)
-                ci->setUseNR(true);
+                useNR = true;
             else
                 return false;
         }
@@ -461,27 +431,27 @@ bool Ip2Nic::markPacket(inet::Ptr<FlowControlInfo> ci)
     if (nodeType_ == UE) {
         bool ueLteStack = (binder_->getNextHop(nodeId_) != NODEID_NONE);
         bool ueNrStack = (binder_->getNextHop(nrNodeId_) != NODEID_NONE);
-        if (dualConnectivityEnabled_ && ueLteStack && ueNrStack && ci->getTypeOfService() >= 20) { // use split bearer TODO fix threshold
+        if (dualConnectivityEnabled_ && ueLteStack && ueNrStack && typeOfService >= 20) { // use split bearer TODO fix threshold
             int sentPackets;
-            if ((sentPackets = sbTable_->find_entry(ci->getSrcAddr(), ci->getDstAddr(), ci->getTypeOfService())) < 0)
-                sentPackets = sbTable_->create_entry(ci->getSrcAddr(), ci->getDstAddr(), ci->getTypeOfService());
+            if ((sentPackets = sbTable_->find_entry(srcAddr.getInt(), dstAddr.getInt(), typeOfService)) < 0)
+                sentPackets = sbTable_->create_entry(srcAddr.getInt(), dstAddr.getInt(), typeOfService);
 
             if (sentPackets % 2 == 0)
-                ci->setUseNR(false);
+                useNR = false;
             else
-                ci->setUseNR(true);
+                useNR = true;
         }
         else {
-            if (masterId_ == NODEID_NONE && nrMasterId_ != NODEID_NONE)
-                ci->setUseNR(true);
-            else if (masterId_ != NODEID_NONE && nrMasterId_ == NODEID_NONE)
-                ci->setUseNR(false);
+            if (servingNodeId_ == NODEID_NONE && nrServingNodeId_ != NODEID_NONE)
+                useNR = true;
+            else if (servingNodeId_ != NODEID_NONE && nrServingNodeId_ == NODEID_NONE)
+                useNR = false;
             else {
                 // both != 0
-                if (ci->getTypeOfService() >= 10)                                                     // use secondary cell group bearer TODO fix threshold
-                    ci->setUseNR(true);
+                if (typeOfService >= 10)                                                     // use secondary cell group bearer TODO fix threshold
+                    useNR = true;
                 else                                                       // use master cell group bearer
-                    ci->setUseNR(false);
+                    useNR = false;
             }
         }
     }
@@ -585,15 +555,15 @@ void Ip2Nic::triggerHandoverUe(MacNodeId newMasterId, bool isNr)
     if (newMasterId != NODEID_NONE) {
         ueHold_ = true;
         if (isNr)
-            nrMasterId_ = newMasterId;
+            nrServingNodeId_ = newMasterId;
         else
-            masterId_ = newMasterId;
+            servingNodeId_ = newMasterId;
     }
     else {
         if (isNr)
-            nrMasterId_ = NODEID_NONE;
+            nrServingNodeId_ = NODEID_NONE;
         else
-            masterId_ = NODEID_NONE;
+            servingNodeId_ = NODEID_NONE;
     }
 }
 
@@ -601,7 +571,7 @@ void Ip2Nic::signalHandoverCompleteUe(bool isNr)
 {
     Enter_Method("signalHandoverCompleteUe");
 
-    if ((!isNr && masterId_ != NODEID_NONE) || (isNr && nrMasterId_ != NODEID_NONE)) {
+    if ((!isNr && servingNodeId_ != NODEID_NONE) || (isNr && nrServingNodeId_ != NODEID_NONE)) {
         // send held packets
         while (!ueHoldFromIp_.empty()) {
             auto pkt = ueHoldFromIp_.front();
@@ -647,4 +617,3 @@ void Ip2Nic::finish()
 }
 
 } //namespace
-

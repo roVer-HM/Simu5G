@@ -31,18 +31,10 @@ BaseStationStatsCollector::~BaseStationStatsCollector()
     cancelAndDelete(tPut_);
 }
 
-void BaseStationStatsCollector::initialize(int stage) {
-
-    if (stage == inet::INITSTAGE_LOCAL) {
-        EV << collectorType_ << "::initialize stage: " << stage << endl;
+void BaseStationStatsCollector::initialize(int stage)
+{
+    if (stage == inet::INITSTAGE_APPLICATION_LAYER) {
         collectorType_ = par("collectorType").stringValue();
-        std::string nodeType = getContainingNode(this)->par("nodeType").stdstringValue();
-        nodeType_ = static_cast<RanNodeType>(cEnum::get("simu5g::RanNodeType")->lookup(nodeType.c_str()));
-        EV << collectorType_ << "::initialize node type: " << nodeType << endl;
-    }
-    else if (stage == inet::INITSTAGE_APPLICATION_LAYER) {
-        EV << collectorType_ << "::initialize stage: " << stage << endl;
-
         cModule *node = getContainingNode(this);
         ecgi_.plmn.mcc = node->par("mcc").stdstringValue();
         ecgi_.plmn.mnc = node->par("mnc").stdstringValue();

@@ -20,8 +20,7 @@
 #include "simu5g/common/timer/TTimer.h"
 #include "simu5g/stack/pdcp/packet/LtePdcpPdu_m.h"
 #include "simu5g/stack/rlc/LteRlcDefs.h"
-#include "simu5g/stack/rlc/am/packet/LteRlcAmPdu.h"
-#include "simu5g/stack/rlc/am/packet/LteRlcAmSdu_m.h"
+#include "simu5g/stack/rlc/packet/LteRlcPdu_m.h"
 #include "simu5g/stack/rlc/am/LteRlcAm.h"
 
 namespace simu5g {
@@ -173,7 +172,8 @@ class AmTxQueue : public cSimpleModule
     /**
      * Initialize
      */
-    void initialize() override;
+    void initialize(int stage) override;
+    int numInitStages() const override { return inet::NUM_INIT_STAGES; }
     /*
      * Analyze the gate of incoming packet and call proper handler
      * @param msg
@@ -236,4 +236,3 @@ class AmTxQueue : public cSimpleModule
 } //namespace
 
 #endif
-

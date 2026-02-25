@@ -25,21 +25,21 @@ EventGenerator::~EventGenerator()
     cancelAndDelete(selfMessage_);
 }
 
-void EventGenerator::initialize()
+void EventGenerator::initialize(int stage)
 {
-    EV << "EventGenerator initialize " << endl;
+    if (stage == inet::INITSTAGE_LOCAL) {
+        selfMessage_ = new cMessage("selfMessage");
+        binder_.reference(this, "binderModule", true);
+        singleEventSource_ = par("singleEventSource").boolValue();
 
-    selfMessage_ = new cMessage("selfMessage");
-    binder_.reference(this, "binderModule", true);
-    singleEventSource_ = par("singleEventSource").boolValue();
+        simtime_t startTime = par("startTime");
+        if (startTime >= 0) {
+            // this conversion is made in order to obtain ms-aligned start time, even in case of random generated ones
+            simtime_t offset = (round(SIMTIME_DBL(startTime) * 1000) / 1000) + simTime();
 
-    simtime_t startTime = par("startTime");
-    if (startTime >= 0) {
-        // this conversion is made in order to obtain ms-aligned start time, even in case of random generated ones
-        simtime_t offset = (round(SIMTIME_DBL(startTime) * 1000) / 1000) + simTime();
-
-        scheduleAt(offset, selfMessage_);
-        EV << "\t sending event notification in " << offset << " seconds " << endl;
+            scheduleAt(offset, selfMessage_);
+            EV << "\t sending event notification in " << offset << " seconds " << endl;
+        }
     }
 }
 
@@ -62,7 +62,7 @@ void EventGenerator::notifyEvent()
     if (!singleEventSource_) {
         // select a second originator, close to the first one
 
-        LtePhyBase *uePhy = lteNodePhy_[MacNodeId(r + num(UE_MIN_ID))];
+        LtePhyBase *uePhy = lteNodePhy_[MacNodeId(r + UE_MIN_ID)];
         inet::Coord uePos = uePhy->getCoord();
 
         // get references to all UEs in the cell
@@ -71,7 +71,7 @@ void EventGenerator::notifyEvent()
         // find all UEs within a 20m-radius
         std::vector<MacNodeId> tmp;
         for (MacNodeId nodeId : lteNodeIdSet_) {
-            if (UE_MIN_ID + r != nodeId) {
+            if (MacNodeId(UE_MIN_ID + r) != nodeId) {
                 LtePhyBase *phy = lteNodePhy_[nodeId];
                 inet::Coord pos = phy->getCoord();
                 double d = uePos.distance(pos);
@@ -84,7 +84,7 @@ void EventGenerator::notifyEvent()
         if (!tmp.empty()) {
             int r = intuniform(0, tmp.size() - 1, 1);
             MacNodeId id = tmp.at(r);
-            appVector_[id - UE_MIN_ID]->handleEvent(eventId_);
+            appVector_[num(id) - UE_MIN_ID]->handleEvent(eventId_);
         }
     }
 
@@ -145,4 +145,3 @@ void EventGenerator::unregisterNode(MultihopD2D *app, MacNodeId lteNodeId)
 }
 
 } //namespace
-

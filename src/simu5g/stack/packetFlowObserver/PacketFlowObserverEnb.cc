@@ -13,10 +13,11 @@
 #include "simu5g/stack/mac/LteMacBase.h"
 #include "simu5g/stack/pdcp/LtePdcp.h"
 #include "simu5g/stack/rlc/LteRlcDefs.h"
-#include "simu5g/stack/rlc/packet/LteRlcDataPdu.h"
+#include "simu5g/stack/rlc/packet/LteRlcPdu_m.h"
+#include "simu5g/stack/rlc/packet/PdcpTrackingTag_m.h"
 #include "simu5g/stack/mac/packet/LteMacPdu.h"
 #include "simu5g/common/LteCommon.h"
-
+#include "simu5g/stack/pdcp/packet/LtePdcpPdu_m.h"
 #include "simu5g/common/LteControlInfo.h"
 #include <sstream>
 
@@ -24,15 +25,13 @@ namespace simu5g {
 
 Define_Module(PacketFlowObserverEnb);
 
-
-
 void PacketFlowObserverEnb::initialize(int stage)
 {
-    if (stage == 1) {
-        PacketFlowObserverBase::initialize(stage);
+    PacketFlowObserverBase::initialize(stage);
+
+    if (stage == inet::INITSTAGE_LOCAL) {
         if (headerCompressedSize_ == -1)
             headerCompressedSize_ = 0;
-
         timesUe_.setName("delay");
     }
 }
@@ -118,7 +117,9 @@ void PacketFlowObserverEnb::insertPdcpSdu(inet::Packet *pdcpPkt)
     if (connectionMap_.find(lcid) == connectionMap_.end())
         initLcid(lcid, lteInfo->getDestId());
 
-    unsigned int pdcpSno = lteInfo->getSequenceNumber();
+    // Extract sequence number from PDCP header
+    auto pdcpHeader = pdcpPkt->peekAtFront<LtePdcpHeader>();
+    unsigned int pdcpSno = pdcpHeader->getSequenceNumber();
     int64_t pduSize = pdcpPkt->getByteLength();
     MacNodeId nodeId = lteInfo->getDestId();
     simtime_t entryTime = simTime();
@@ -172,7 +173,9 @@ void PacketFlowObserverEnb::receivedPdcpSdu(inet::Packet *pdcpPkt)
     /*
      * update packetLossRate UL
      */
-    unsigned int sno = lteInfo->getSequenceNumber();
+    // Extract sequence number from PDCP header
+    auto pdcpHeader = pdcpPkt->peekAtFront<LtePdcpHeader>();
+    unsigned int sno = pdcpHeader->getSequenceNumber();
     auto cit = packetLossRate_.find(nodeId);
     if (cit == packetLossRate_.end()) {
         packetLossRate_[nodeId].clear();
@@ -263,8 +266,9 @@ void PacketFlowObserverEnb::insertRlcPdu(LogicalCid lcid, const inet::Ptr<LteRlc
 
     FramingInfo fi = rlcPdu->getFramingInfo();
     for (size_t idx = 0; idx < rlcPdu->getNumSdu(); ++idx) {
-        auto rlcSdu = rlcPdu->getSdu(idx)->peekAtFront<LteRlcSdu>();
-        unsigned int pdcpSno = rlcSdu->getSnoMainPacket();
+        auto sduPacket = rlcPdu->getSdu(idx);
+        auto pdcpTag = sduPacket->getTag<PdcpTrackingTag>();
+        unsigned int pdcpSno = pdcpTag->getPdcpSequenceNumber();
         size_t pdcpPduLength = rlcPdu->getSduSize(idx); // TODO fix with size of the chunk!!
 
         EV << "PacketFlowObserverEnb::insertRlcPdu - pdcpSdu " << pdcpSno << " with length: " << pdcpPduLength << " bytes" << endl;
@@ -392,8 +396,7 @@ void PacketFlowObserverEnb::insertMacPdu(inet::Ptr<const LteMacPdu> macPdu)
         throw cRuntimeError("%s::macPduArrived - macPdu has no Rlc pdu! This, here, should not happen", pfmType.c_str());
     for (int i = 0; i < len; ++i) {
         auto rlcPdu = macPdu->getSdu(i);
-        auto lteInfo = rlcPdu.getTag<FlowControlInfo>();
-        int lcid = lteInfo->getLcid();
+        int lcid = macPdu->getLcid(i);
         auto cit = connectionMap_.find(lcid);
         if (cit == connectionMap_.end()) {
             // this may occur after a handover, when data structures are cleared
@@ -443,8 +446,7 @@ void PacketFlowObserverEnb::macPduArrived(inet::Ptr<const LteMacPdu> macPdu)
         throw cRuntimeError("%s::macPduArrived - macPdu has no Rlc pdu! This, here, should not happen", pfmType.c_str());
     for (int i = 0; i < len; ++i) {
         auto rlcPdu = macPdu->getSdu(i);
-        auto lteInfo = rlcPdu.getTag<FlowControlInfo>();
-        int lcid = lteInfo->getLcid();
+        int lcid = macPdu->getLcid(i);
         auto cit = connectionMap_.find(lcid);
         if (cit == connectionMap_.end())
             throw cRuntimeError("%s::macPduArrived - Logical CID %d not present. It must be initialized before", pfmType.c_str(), lcid);
@@ -859,9 +861,4 @@ void PacketFlowObserverEnb::resetDataVolume(MacNodeId nodeId)
     node->second.ulBits = 0;
 }
 
-void PacketFlowObserverEnb::finish()
-{
-}
-
 } //namespace
-

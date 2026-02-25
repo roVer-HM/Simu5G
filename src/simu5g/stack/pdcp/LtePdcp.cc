@@ -17,6 +17,8 @@
 
 #include "simu5g/stack/packetFlowObserver/PacketFlowObserverBase.h"
 #include "simu5g/stack/pdcp/packet/LteRohcPdu_m.h"
+#include "simu5g/stack/rlc/packet/PdcpTrackingTag_m.h"
+#include "simu5g/common/LteControlInfoTags_m.h"
 
 namespace simu5g {
 
@@ -34,20 +36,6 @@ simsignal_t LtePdcpBase::sentPacketToLowerLayerSignal_ = registerSignal("sentPac
 
 LtePdcpBase::~LtePdcpBase()
 {
-}
-
-
-ApplicationType LtePdcpBase::getApplication(cPacket *pkt)
-{
-    const char *name = pkt->getName();
-    if (opp_stringbeginswith(name, "VoIP"))
-        return VOIP;
-    else if (opp_stringbeginswith(name, "gaming"))
-        return GAMING;
-    else if (opp_stringbeginswith(name, "VoDPacket") || opp_stringbeginswith(name, "VoDFinishPacket"))
-        return VOD;
-    else
-        return CBR;
 }
 
 LteTrafficClass LtePdcpBase::getTrafficCategory(cPacket *pkt)
@@ -79,21 +67,6 @@ LteRlcType LtePdcpBase::getRlcType(LteTrafficClass trafficCategory)
     }
 }
 
-void LtePdcpBase::setTrafficInformation(cPacket *pkt, inet::Ptr<FlowControlInfo> lteInfo)
-{
-    ApplicationType application = getApplication(pkt);
-    LteTrafficClass trafficCategory = getTrafficCategory(pkt);
-    LteRlcType rlcType = getRlcType(trafficCategory);
-
-    lteInfo->setApplication(application);
-    lteInfo->setTraffic(trafficCategory);
-    lteInfo->setRlcType(rlcType);
-
-    // direction of transmitted packets depends on node type
-    Direction dir = getNodeTypeById(nodeId_) == UE ? UL : DL;
-    lteInfo->setDirection(dir);
-}
-
 LogicalCid LtePdcpBase::lookupOrAssignLcid(const ConnectionKey& key)
 {
     auto it = lcidTable_.find(key);
@@ -114,32 +87,42 @@ LogicalCid LtePdcpBase::lookupOrAssignLcid(const ConnectionKey& key)
 void LtePdcpBase::analyzePacket(inet::Packet *pkt)
 {
     // Control Information
-    auto lteInfo = pkt->getTagForUpdate<FlowControlInfo>();
+    auto lteInfo = pkt->addTagIfAbsent<FlowControlInfo>();
 
-    setTrafficInformation(pkt, lteInfo);
+    // Traffic category, RLC type
+    LteTrafficClass trafficCategory = getTrafficCategory(pkt);
+    LteRlcType rlcType = getRlcType(trafficCategory);
+    lteInfo->setTraffic(trafficCategory);
+    lteInfo->setRlcType(rlcType);
 
-    MacNodeId destId = getDestId(lteInfo);
+    // direction of transmitted packets depends on node type
+    Direction dir = getNodeTypeById(nodeId_) == UE ? UL : DL;
+    lteInfo->setDirection(dir);
 
-    // CID Request
-    EV << "LteRrc : Received CID request for Traffic [ " << "Source: " << Ipv4Address(lteInfo->getSrcAddr())
-       << " Destination: " << Ipv4Address(lteInfo->getDstAddr())
-       << " ToS: " << lteInfo->getTypeOfService() << " ]\n";
+    // get IP flow information
+    auto ipFlowInd = pkt->getTag<IpFlowInd>();
+    Ipv4Address srcAddr = ipFlowInd->getSrcAddr();
+    Ipv4Address destAddr = ipFlowInd->getDstAddr();
+    uint16_t typeOfService = ipFlowInd->getTypeOfService();
+    EV << "Received packet from data port, src= " << srcAddr << " dest=" << destAddr << " ToS=" << typeOfService << endl;
+
+    bool useNR = pkt->getTag<TechnologyReq>()->getUseNR();
+    MacNodeId destId = getNextHopNodeId(destAddr, useNR, lteInfo->getSourceId());
 
     // TODO: Since IP addresses can change when we add and remove nodes, maybe node IDs should be used instead of them
-    ConnectionKey key{Ipv4Address(lteInfo->getSrcAddr()), Ipv4Address(lteInfo->getDstAddr()), lteInfo->getTypeOfService(), 0xFFFF};
+    ConnectionKey key{srcAddr, destAddr, typeOfService, 0xFFFF};
     LogicalCid lcid = lookupOrAssignLcid(key);
 
-    // assign LCID
+    // assign LCID and node IDs
     lteInfo->setLcid(lcid);
     lteInfo->setSourceId(nodeId_);
     lteInfo->setDestId(destId);
 
-    // this is the body of former LteTxPdcpEntity::setIds()
-    lteInfo->setSourceId(getNodeId());
-    if (lteInfo->getMulticastGroupId() > 0)                                               // destId is meaningless for multicast D2D (we use the id of the source for statistic purposes at lower levels)
+    lteInfo->setSourceId(getNodeId());   // TODO CHANGE HERE!!! Must be the NR node ID if this is an NR connection
+    if (lteInfo->getMulticastGroupId() != NODEID_NONE)  // destId is meaningless for multicast D2D (we use the id of the source for statistic purposes at lower levels)
         lteInfo->setDestId(getNodeId());
     else
-        lteInfo->setDestId(getDestId(lteInfo));
+        lteInfo->setDestId(getNextHopNodeId(destAddr, false, lteInfo->getSourceId()));
 }
 
 void LtePdcpBase::fromDataPort(cPacket *pktAux)
@@ -154,12 +137,12 @@ void LtePdcpBase::fromDataPort(cPacket *pktAux)
 
     MacCid cid = MacCid(lteInfo->getDestId(), lteInfo->getLcid());
 
-    if (isDualConnectivityEnabled() && lteInfo->getMulticastGroupId() == -1) {
+    if (isDualConnectivityEnabled() && lteInfo->getMulticastGroupId() == NODEID_NONE) {
         // Handle DC setup: Assume packet arrives in Master nodeB (LTE), and wants to use Secondary nodeB (NR).
         // Packet is processed by local PDCP entity, then needs to be tunneled over X2 to Secondary for transmission.
         // However, local PDCP entity is keyed on LTE nodeIds, so we need to tweak the cid and replace NR nodeId
         // with LTE nodeId so that lookup succeeds.
-        if (getNodeTypeById(nodeId_) == ENODEB && binder_->isGNodeB(nodeId_) != isNrUe(lteInfo->getDestId()) ) {
+        if (getNodeTypeById(nodeId_) == NODEB && binder_->isGNodeB(nodeId_) != isNrUe(lteInfo->getDestId()) ) {
             // use another CID whose technology matches the nodeB
             MacNodeId otherDestId = binder_->getUeNodeId(lteInfo->getDestId(), !isNrUe(lteInfo->getDestId()));
             ASSERT(otherDestId != NODEID_NONE);
@@ -167,7 +150,7 @@ void LtePdcpBase::fromDataPort(cPacket *pktAux)
         }
 
         // Handle DC setup on UE side: both legs should use the *same* key for entity lookup
-        if (getNodeTypeById(nodeId_) == UE && getNodeTypeById(lteInfo->getDestId()) == ENODEB)  {
+        if (getNodeTypeById(nodeId_) == UE && getNodeTypeById(lteInfo->getDestId()) == NODEB)  {
             MacNodeId lteNodeB = binder_->getServingNode(nodeId_);
             cid = MacCid(lteNodeB, lteInfo->getLcid());
         }
@@ -181,8 +164,12 @@ void LtePdcpBase::fromDataPort(cPacket *pktAux)
        << " multicast=" << lteInfo->getMulticastGroupId() << " direction=" << dirToA((Direction)lteInfo->getDirection())
        << " ---> CID " << cid << (entity == nullptr ? " (NEW)" : " (existing)") << std::endl;
 
-    if (entity == nullptr)
-        entity = createTxEntity(cid);
+    if (entity == nullptr) {
+        binder_->establishUnidirectionalDataConnection((FlowControlInfo *)lteInfo.get());
+        entity = lookupTxEntity(cid);
+        ASSERT(entity != nullptr);
+    }
+
     entity->handlePacketFromUpperLayer(pkt);
 }
 
@@ -195,15 +182,16 @@ void LtePdcpBase::fromLowerLayer(cPacket *pktAux)
     auto pkt = check_and_cast<Packet *>(pktAux);
     emit(receivedPacketFromLowerLayerSignal_, pkt);
 
-    auto lteInfo = pkt->getTag<FlowControlInfo>();
+    ASSERT(pkt->findTag<PdcpTrackingTag>() == nullptr);
 
+    auto lteInfo = pkt->getTag<FlowControlInfo>();
     MacCid cid = MacCid(lteInfo->getSourceId(), lteInfo->getLcid());
 
     if (isDualConnectivityEnabled()) {
         // Handle DC setup: Assume packet arrives at this Master nodeB (LTE) from Secondary (NR) over X2.
         // Packet needs to be processed by local PDCP entity. However, local PDCP entity is keyed on LTE nodeIds,
         // so we need to tweak the cid and replace NR nodeId with LTE nodeId so that lookup succeeds.
-        if (getNodeTypeById(nodeId_) == ENODEB && binder_->isGNodeB(nodeId_) != isNrUe(lteInfo->getSourceId()) ) {
+        if (getNodeTypeById(nodeId_) == NODEB && binder_->isGNodeB(nodeId_) != isNrUe(lteInfo->getSourceId()) ) {
             // use another CID whose technology matches the nodeB
             MacNodeId otherSourceId = binder_->getUeNodeId(lteInfo->getSourceId(), !isNrUe(lteInfo->getSourceId()));
             ASSERT(otherSourceId != NODEID_NONE);
@@ -211,7 +199,7 @@ void LtePdcpBase::fromLowerLayer(cPacket *pktAux)
         }
 
         // Handle DC setup on UE side: both legs should use the *same* key for entity lookup
-        if (getNodeTypeById(nodeId_) == UE && getNodeTypeById(lteInfo->getSourceId()) == ENODEB)  {
+        if (getNodeTypeById(nodeId_) == UE && getNodeTypeById(lteInfo->getSourceId()) == NODEB)  {
             MacNodeId lteNodeB = binder_->getServingNode(nodeId_);
             cid = MacCid(lteNodeB, lteInfo->getLcid());
         }
@@ -219,7 +207,7 @@ void LtePdcpBase::fromLowerLayer(cPacket *pktAux)
 
     // Handle DC setup on UE side: UE receives packet from base station
     // and needs to use the correct PDCP entity based on technology matching
-    if (getNodeTypeById(nodeId_) == UE && lteInfo->getMulticastGroupId() == -1 && isDualConnectivityEnabled()) {
+    if (getNodeTypeById(nodeId_) == UE && lteInfo->getMulticastGroupId() == NODEID_NONE && isDualConnectivityEnabled()) {
         MacNodeId servingNodeId = binder_->getServingNode(nodeId_);
 
         // Check if there's a technology mismatch between packet source and UE's serving base station
@@ -253,8 +241,8 @@ void LtePdcpBase::fromLowerLayer(cPacket *pktAux)
        << " multicast=" << lteInfo->getMulticastGroupId() << " direction=" << dirToA((Direction)lteInfo->getDirection())
        << " ---> CID " << cid << (entity == nullptr ? " (NEW)" : " (existing)") << std::endl;
 
-    if (entity == nullptr)
-        entity = createRxEntity(cid);
+    ASSERT(entity != nullptr);
+
     entity->handlePacketFromLowerLayer(pkt);
 }
 
@@ -423,17 +411,6 @@ LteRxPdcpEntity *LtePdcpBase::createRxEntity(MacCid cid)
     return rxEnt;
 }
 
-
-void LtePdcpBase::finish()
-{
-    // TODO make-finish
-}
-
-void LtePdcpEnb::initialize(int stage)
-{
-    LtePdcpBase::initialize(stage);
-}
-
 void LtePdcpEnb::deleteEntities(MacNodeId nodeId)
 {
     Enter_Method_Silent();
@@ -474,15 +451,6 @@ void LtePdcpUe::deleteEntities(MacNodeId nodeId)
         rxEntity->deleteModule();  // Delete Entity
     }
     rxEntities_.clear(); // Clear all entities after deletion
-}
-
-void LtePdcpUe::initialize(int stage)
-{
-    LtePdcpBase::initialize(stage);
-    if (stage == inet::INITSTAGE_NETWORK_LAYER) {
-        // refresh value, the parameter may have changed between INITSTAGE_LOCAL and INITSTAGE_NETWORK_LAYER
-        nodeId_ = MacNodeId(getContainingNode(this)->par("macNodeId").intValue());
-    }
 }
 
 } //namespace

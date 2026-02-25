@@ -19,16 +19,10 @@ namespace simu5g {
 class PhyPisaData;
 class LteFeedbackComputationRealistic : public LteFeedbackComputation
 {
-    // Channel matrix struct
-    const std::map<MacNodeId, Lambda>& lambda_;
     // Target BLER
     double targetBler_;
     // Number of logical bands
     unsigned int numBands_;
-    // Lambda threshold
-    double lambdaMinTh_;
-    double lambdaMaxTh_;
-    double lambdaRatioTh_;
     // Pointer to Pisa data
     PhyPisaData *phyPisaData_ = nullptr;
 
@@ -45,22 +39,21 @@ class LteFeedbackComputationRealistic : public LteFeedbackComputation
     double meanSnr(std::vector<double> snr);
 
   public:
-    LteFeedbackComputationRealistic(Binder *binder, double targetBler, const std::map<MacNodeId, Lambda>& lambda, double lambdaMinTh,
-            double lambdaMaxTh, double lambdaRatioTh, unsigned int numBands);
+    LteFeedbackComputationRealistic(Binder *binder, double targetBler, unsigned int numBands);
 
     LteFeedbackDoubleVector computeFeedback(FeedbackType fbType, RbAllocationType rbAllocationType,
             TxMode currentTxMode,
-            std::map<Remote, int> antennaCws, int numPreferredBands, FeedbackGeneratorType feedbackGeneratortype,
+            std::map<Remote, int> antennaCws, int numPreferredBands,
             int numRus, std::vector<double> snr, MacNodeId id = NODEID_NONE) override;
 
     LteFeedbackVector computeFeedback(const Remote remote, FeedbackType fbType,
             RbAllocationType rbAllocationType, TxMode currentTxMode,
-            int antennaCws, int numPreferredBands, FeedbackGeneratorType feedbackGeneratortype, int numRus,
+            int antennaCws, int numPreferredBands, int numRus,
             std::vector<double> snr, MacNodeId id = NODEID_NONE) override;
 
     LteFeedback computeFeedback(const Remote remote, TxMode txmode, FeedbackType fbType,
             RbAllocationType rbAllocationType,
-            int antennaCws, int numPreferredBands, FeedbackGeneratorType feedbackGeneratortype, int numRus,
+            int antennaCws, int numPreferredBands, int numRus,
             std::vector<double> snr, MacNodeId id = NODEID_NONE) override;
 };
 

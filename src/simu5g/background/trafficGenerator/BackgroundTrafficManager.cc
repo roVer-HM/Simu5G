@@ -21,12 +21,9 @@ void BackgroundTrafficManager::initialize(int stage)
     BackgroundTrafficManagerBase::initialize(stage);
     if (stage == inet::INITSTAGE_LOCAL) {
         phy_.reference(this, "phyModule", true);
+        mac_.reference(this, "macModule", true);
     }
-    if (stage == inet::INITSTAGE_PHYSICAL_LAYER) {
-        // Get the reference to the MAC layer
-        mac_.reference(this, "macModule", true); // TODO: mac_ used in BackgroundTrafficManagerBase
-    }
-    if (stage == inet::INITSTAGE_LAST - 1) {
+    if (stage == INITSTAGE_SIMU5G_BACKGROUNDTRAFFICMANAGER) {
         // Get the reference to the channel model for the given carrier
         bsTxPower_ = phy_->getTxPwr();
         bsCoord_ = phy_->getCoord();
@@ -53,7 +50,7 @@ std::vector<double> BackgroundTrafficManager::getSINR(int bgUeIndex, Direction d
     UserControlInfo *cInfo = new UserControlInfo();
 
     // Build a control info
-    cInfo->setSourceId(BGUE_MIN_ID + bgUeIndex);  // MacNodeId for the bgUe
+    cInfo->setSourceId(MacNodeId(BGUE_MIN_ID + bgUeIndex));  // MacNodeId for the bgUe
     cInfo->setDestId(mac_->getMacNodeId());  // ID of the e/gNodeB
     cInfo->setFrameType(FEEDBACKPKT);
     cInfo->setCoord(bgUePos);
@@ -75,7 +72,7 @@ std::vector<double> BackgroundTrafficManager::getSINR(int bgUeIndex, Direction d
 
 unsigned int BackgroundTrafficManager::getBackloggedUeBytesPerBlock(MacNodeId bgUeId, Direction dir)
 {
-    int index = bgUeId - BGUE_MIN_ID;
+    int index = num(bgUeId) - BGUE_MIN_ID;
     Cqi cqi = bgUe_.at(index)->getCqi(dir);
 
     // Get bytes per block based on CQI

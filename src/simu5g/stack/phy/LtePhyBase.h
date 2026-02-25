@@ -53,7 +53,6 @@ class LteChannelModel;
 
 class LtePhyBase : public ChannelAccess
 {
-    friend class DasFilter;
 
   protected:
 
@@ -210,9 +209,7 @@ class LtePhyBase : public ChannelAccess
      */
     void initialize(int stage) override;
 
-    int numInitStages() const override {
-        return std::max(inet::INITSTAGE_LAST + 1, ChannelAccess::numInitStages());
-    }
+    int numInitStages() const override { return inet::NUM_INIT_STAGES; }
 
     /**
      * Processes messages received from #radioInGate_ or from the stack (#upperGateIn_).

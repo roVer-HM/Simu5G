@@ -31,14 +31,12 @@ void LtePhyBase::initialize(int stage)
 
     if (stage == inet::INITSTAGE_LOCAL) {
         binder_.reference(this, "binderModule", true);
-        cellInfo_ = nullptr;
         // get gate ids
         upperGateIn_ = findGate("upperGateIn");
         upperGateOut_ = findGate("upperGateOut");
         radioInGate_ = findGate("radioIn");
 
         // Initialize and watch statistics
-        numAirFrameReceived_ = numAirFrameNotReceived_ = 0;
         ueTxPower_ = par("ueTxPower");
         eNodeBtxPower_ = par("eNodeBTxPower");
         microTxPower_ = par("microTxPower");
@@ -50,7 +48,7 @@ void LtePhyBase::initialize(int stage)
         multicastD2DRange_ = par("multicastD2DRange");
         enableMulticastD2DRangeCheck_ = par("enableMulticastD2DRangeCheck");
     }
-    else if (stage == inet::INITSTAGE_PHYSICAL_LAYER) {
+    else if (stage == INITSTAGE_SIMU5G_REGISTRATIONS2) {
         initializeChannelModel();
     }
 }
@@ -92,8 +90,6 @@ LteAirFrame *LtePhyBase::createHandoverMessage()
     // broadcast airframe
     LteAirFrame *bdcAirFrame = new LteAirFrame("handoverFrame");
     UserControlInfo *cInfo = new UserControlInfo();
-    cInfo->setIsBroadcast(true);
-    cInfo->setIsCorruptible(false);
     cInfo->setSourceId(nodeId_);
     cInfo->setFrameType(HANDOVERPKT);
     cInfo->setTxPower(txPower_);
@@ -157,18 +153,17 @@ void LtePhyBase::initializeChannelModel()
     channelModel_[carrierFreq] = primaryChannelModel_;
 
     if (nodeType_ == UE)
-        binder_->registerCarrierUe(GHz(carrierFreq), numerologyIndex, nodeId_); //TODO check this call in the original!!!
+        binder_->registerCarrierUe(carrierFreq, numerologyIndex, nodeId_);
 
-    int vectSize = primaryChannelModel_->getVectorSize();
-    LteChannelModel *chanModel = nullptr;
-    for (int index = 1; index < vectSize; index++) {
-        chanModel = check_and_cast<LteChannelModel *>(primaryChannelModel_->getParentModule()->getSubmodule(primaryChannelModel_->getName(), index));
+    int numChannelModels = primaryChannelModel_->getVectorSize();
+    for (int index = 1; index < numChannelModels; index++) {
+        LteChannelModel *chanModel = check_and_cast<LteChannelModel *>(primaryChannelModel_->getParentModule()->getSubmodule(primaryChannelModel_->getName(), index));
         chanModel->setPhy(this);
-        carrierFreq = chanModel->getCarrierFrequency();
-        numerologyIndex = chanModel->getNumerologyIndex();
+        GHz carrierFreq = chanModel->getCarrierFrequency();
+        unsigned int numerologyIndex = chanModel->getNumerologyIndex();
         channelModel_[carrierFreq] = chanModel;
         if (nodeType_ == UE)
-            binder_->registerCarrierUe(GHz(carrierFreq), numerologyIndex, nodeId_);
+            binder_->registerCarrierUe(carrierFreq, numerologyIndex, nodeId_);
     }
 }
 
@@ -184,6 +179,13 @@ void LtePhyBase::updateDisplayString()
 
 void LtePhyBase::sendBroadcast(LteAirFrame *airFrame)
 {
+    // Remove control info to allow parsim packing
+    if (airFrame->getControlInfo() != nullptr) {
+        UserControlInfo *userControlInfo = check_and_cast<UserControlInfo *>(airFrame->removeControlInfo());
+        airFrame->setAdditionalInfo(*userControlInfo);
+        delete userControlInfo;
+    }
+
     // delegate the ChannelControl to send the airframe
     sendToChannel(airFrame);
 }
@@ -206,9 +208,13 @@ void LtePhyBase::sendMulticast(LteAirFrame *frame)
     UserControlInfo *ci = check_and_cast<UserControlInfo *>(frame->getControlInfo());
 
     // get the group Id
-    int32_t groupId = ci->getMulticastGroupId();
-    if (groupId < 0)
+    MacNodeId groupId = ci->getPacketMulticastGroupId();
+    if (groupId == NODEID_NONE)
         throw cRuntimeError("LtePhyBase::sendMulticast - Error. Group ID %d is not valid.", groupId);
+
+    // transfer control info into airframe fields
+    frame->setAdditionalInfo(*ci);
+    delete frame->removeControlInfo();
 
     // send the frame to nodes belonging to the multicast group only
     for (auto [destId, nodeInfo] : binder_->getNodeInfoMap()) {
@@ -239,7 +245,9 @@ void LtePhyBase::sendMulticast(LteAirFrame *frame)
 
             EV << NOW << " LtePhyBase::sendMulticast - sending frame to node " << destId << endl;
 
-            sendDirect(frame->dup(), 0, frame->getDuration(), receiver, getReceiverGateIndex(receiver, isNrUe(destId)));
+            // Create a duplicate frame before sending
+            LteAirFrame *frameToSend = frame->dup();
+            sendDirect(frameToSend, 0, frame->getDuration(), receiver, getReceiverGateIndex(receiver, isNrUe(destId)));
         }
     }
 
@@ -258,6 +266,13 @@ void LtePhyBase::sendUnicast(LteAirFrame *frame)
         // destination node has left the simulation
         delete frame;
         return;
+    }
+
+    // Remove control info to allow parsim packing
+    if (frame->getControlInfo() != nullptr) {
+        UserControlInfo *userControlInfo = check_and_cast<UserControlInfo *>(frame->removeControlInfo());
+        frame->setAdditionalInfo(*userControlInfo);
+        delete userControlInfo;
     }
 
     sendDirect(frame, 0, frame->getDuration(), receiver, getReceiverGateIndex(receiver, isNrUe(dest)));

@@ -14,10 +14,9 @@
 
 #include "simu5g/common/LteCommon.h"
 #include "simu5g/common/LteControlInfo.h"
-#include "simu5g/stack/rlc/packet/LteRlcSdu_m.h"
 #include "simu5g/stack/rlc/um/UmTxEntity.h"
 #include "simu5g/stack/rlc/um/UmRxEntity.h"
-#include "simu5g/stack/rlc/packet/LteRlcDataPdu.h"
+#include "simu5g/stack/rlc/packet/LteRlcPdu_m.h"
 #include "simu5g/stack/mac/LteMacBase.h"
 #include "simu5g/mec/utils/MecCommon.h"
 
@@ -160,6 +159,7 @@ class LteRlcUm : public cSimpleModule
      */
     void handleMessage(cMessage *msg) override;
 
+  public:
     /**
      * lookupTxBuffer() searches for an existing TXBuffer for the given CID.
      *
@@ -193,9 +193,9 @@ class LteRlcUm : public cSimpleModule
      * @param lteInfo flow-related info
      * @return pointer to the newly created RXBuffer
      */
-
     virtual UmRxEntity *createRxBuffer(MacCid cid, FlowControlInfo *lteInfo);
 
+  protected:
     /**
      * handler for traffic coming
      * from the upper layer (PDCP)

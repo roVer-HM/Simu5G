@@ -50,12 +50,12 @@ class LteChannelModel : public cSimpleModule
     double log10CarrierFrequencyGHz_;
 
     // Number of bands for this carrier
-    unsigned int numBands_;
+    unsigned int numBands_ = -1;
 
   public:
 
     void initialize(int stage) override;
-    int numInitStages() const override { return inet::INITSTAGE_LOCAL + 2; }
+    int numInitStages() const override { return inet::NUM_INIT_STAGES; }
 
     /*
      * Returns the carrier frequency
@@ -81,9 +81,8 @@ class LteChannelModel : public cSimpleModule
      * @param frame pointer to the packet
      * @param lteInfo pointer to the user control info
      */
-    virtual bool isError(LteAirFrame *frame, UserControlInfo *lteI) = 0;
-    //TODO NOT IMPLEMENTED YET
-    virtual bool isErrorDas(LteAirFrame *frame, UserControlInfo *lteI) = 0;
+    virtual bool isReceptionSuccessful(LteAirFrame *frame, UserControlInfo *lteInfo) = 0;
+
     /*
      * Compute Attenuation caused by path loss and shadowing (optional)
      *
@@ -135,7 +134,7 @@ class LteChannelModel : public cSimpleModule
      * @param lteInfo pointer to the user control info
      * @param rsrpVector the received signal for each RB, if it has already been computed
      */
-    virtual bool isError_D2D(LteAirFrame *frame, UserControlInfo *lteInfo, const std::vector<double>& rsrpVector) = 0;
+    virtual bool isReceptionSuccessful_D2D(LteAirFrame *frame, UserControlInfo *lteInfo, const std::vector<double>& rsrpVector) = 0;
     /*
      * Compute received useful signal for each band for user nodeId according to path loss, shadowing (optional), and multipath fading
      *

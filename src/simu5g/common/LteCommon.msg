@@ -27,29 +27,22 @@ inline unsigned short num(MacNodeId id) { return static_cast<unsigned short>(id)
 
 inline std::ostream& operator<<(std::ostream& os, MacNodeId id) { os << static_cast<unsigned short>(id); return os; }
 
-// The following operators are mostly for simplifying comparisons and transformations involving UE_MIN_ID and similar constants
-inline bool operator<(MacNodeId a, MacNodeId b) { return static_cast<unsigned short>(a) < static_cast<unsigned short>(b); }
-inline bool operator>(MacNodeId a, MacNodeId b) { return static_cast<unsigned short>(a) > static_cast<unsigned short>(b); }
-inline bool operator<=(MacNodeId a, MacNodeId b) { return static_cast<unsigned short>(a) <= static_cast<unsigned short>(b); }
-inline bool operator>=(MacNodeId a, MacNodeId b) { return static_cast<unsigned short>(a) >= static_cast<unsigned short>(b); }
-inline MacNodeId operator+(MacNodeId a, unsigned int b) { return MacNodeId(static_cast<unsigned short>(a) + b); }
-inline MacNodeId operator-(MacNodeId a, unsigned int b) { return MacNodeId(static_cast<unsigned short>(a) - b); }
-inline MacNodeId operator-(unsigned int a, MacNodeId b) { return MacNodeId(a - static_cast<unsigned short>(b)); }
-inline unsigned short operator-(MacNodeId a, MacNodeId b) { return static_cast<unsigned short>(a) - static_cast<unsigned short>(b); }
 
 // parsimPack() needed fpr the "d" fingerprint ingredient
 inline void doParsimPacking(omnetpp::cCommBuffer *buffer, MacNodeId d) {buffer->pack(num(d));}
 inline void doParsimUnpacking(omnetpp::cCommBuffer *buffer, MacNodeId& d) {unsigned short tmp; buffer->unpack(tmp); d = MacNodeId(tmp);}
 
-/// Node Id bounds
+/// Node Id bounds  --TODO the MAX bounds are completely messed up
 constexpr MacNodeId NODEID_NONE  = MacNodeId(0);
-constexpr MacNodeId ENB_MIN_ID   = MacNodeId(1);
-constexpr MacNodeId ENB_MAX_ID   = MacNodeId(1023);
-constexpr MacNodeId BGUE_ID      = MacNodeId(1024);
-constexpr MacNodeId UE_MIN_ID    = MacNodeId(1025);
-constexpr MacNodeId NR_UE_MIN_ID = MacNodeId(2049);
-constexpr MacNodeId BGUE_MIN_ID  = MacNodeId(4097);
-constexpr MacNodeId UE_MAX_ID    = MacNodeId(32767);
+constexpr unsigned short ENB_MIN_ID   = 1;
+constexpr unsigned short ENB_MAX_ID   = 1023;
+constexpr unsigned short BGUE_ID      = 1024;
+constexpr unsigned short UE_MIN_ID    = 1025;
+constexpr unsigned short NR_UE_MIN_ID = 2049;
+constexpr unsigned short BGUE_MIN_ID  = 4097;
+constexpr unsigned short UE_MAX_ID    = 32767;
+constexpr unsigned short MULTICAST_DEST_MIN_ID = 32768;
+
 
 /// Cell node ID. It is numerically equal to eNodeB MAC node ID.
 typedef MacNodeId MacCellId;
@@ -69,8 +62,6 @@ typedef unsigned short Rank;
 /// Channel Quality Indicator
 typedef unsigned short Cqi;
 
-/// Precoding Matrix Index
-typedef unsigned short Pmi;
 
 /// Transport Block Size
 typedef unsigned short Tbs;
@@ -205,18 +196,6 @@ class Cqi {
     @fromValue(omnetpp::checked_int_cast<int64_t>($.intValue()));
 };
 
-/// Precoding Matrix Index
-class Pmi {
-    @existingClass; // typedef unsigned short Pmi;
-    @descriptor(false);
-    @primitive;
-    @castFunction(false);
-    @fromString(string2int64($));
-    @toString(int642string($));
-    @defaultValue(0);
-    @toValue((omnetpp::intval_t)($));
-    @fromValue(omnetpp::checked_int_cast<int64_t>($.intValue()));
-};
 
 /// Transport Block Size
 class Tbs {
@@ -244,6 +223,12 @@ class Band {
     @fromValue(omnetpp::checked_int_cast<int64_t>($.intValue()));
 };
 
+class RbMap
+{
+    @existingClass;
+    @opaque;
+};
+
 struct RemoteUnitPhyData
 {
     int txPower;
@@ -253,9 +238,7 @@ struct RemoteUnitPhyData
 struct FeedbackRequest
 {
     bool request;
-    FeedbackGeneratorType genType;
     FeedbackType type;
-    //used if genType==real
     TxMode txMode;
     bool dasAware;
     RbAllocationType rbAllocationType;

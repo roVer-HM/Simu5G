@@ -102,12 +102,6 @@ class LteAllocationModule
         /// Stores the amount of bytes allocated to every UE in the structure band
         unsigned int allocatedBytes_ = 0;
 
-        // if false this user is not using MU-MIMO
-        bool muMimoEnabled_ = false;
-        // if false this user transmits on MAIN_PLANE, otherwise it is considered as secondary
-        bool secondaryUser_ = false;
-        MacNodeId peerId_ = NODEID_NONE;
-
         // amount of blocks allocated for this UE for each remote and for each band
         std::map<Remote, PerBandAllocatedRbsMap> ueAllocatedRbsMap_;
         /// When an allocation is performed, the amount of blocks requested and the amount of bytes is registered into this list
@@ -137,6 +131,9 @@ class LteAllocationModule
 
     /// For each UE, stores the amount of blocks allocated for each band
     AllocatedRbsPerUeMap allocatedRbsUe_;
+
+  private:
+    void ensureNodeInitialized(const MacNodeId nodeId);
 
     /************************************************************
     *   From Logical Bands to UE
@@ -191,19 +188,6 @@ class LteAllocationModule
     // reset Allocation Module structure
     void reset(const unsigned int resourceBlocks, const unsigned int bands);
 
-    // ********* MU-MIMO Support *********
-    // Configure MuMimo between "nodeId" and "peer"
-    bool configureMuMimoPeering(const MacNodeId nodeId, const MacNodeId peer);
-
-    // MU-MIMO configuration functions
-    void configureOFDMplane(const Plane plane);
-    void setRemoteAntenna(const Plane plane, const Remote antenna);
-    Plane getOFDMPlane(const MacNodeId nodeId);
-
-    // returns the Mu-MIMO peer id if it exists, own id otherwise
-    MacNodeId getMuMimoPeer(const MacNodeId nodeId) const;
-    // **********************************
-
     // ************** Resource Blocks Allocation Status **************
     // Returns the amount of available blocks in the whole system
     unsigned int computeTotalRbs();
@@ -240,7 +224,7 @@ class LteAllocationModule
      */
     unsigned int getBlocks(const Remote antenna, const Band band, const MacNodeId nodeId)
     {
-        Plane plane = allocatedRbsUe_[nodeId].secondaryUser_ ? MU_MIMO_PLANE : MAIN_PLANE;
+        Plane plane = MAIN_PLANE;
         return allocatedRbsPerBand_[plane][antenna][band].ueAllocatedRbsMap_[nodeId];
     }
 
@@ -252,7 +236,7 @@ class LteAllocationModule
 
     unsigned int getBytes(const Remote antenna, const Band band, const MacNodeId nodeId)
     {
-        Plane plane = allocatedRbsUe_[nodeId].secondaryUser_ ? MU_MIMO_PLANE : MAIN_PLANE;
+        Plane plane = MAIN_PLANE;
         return allocatedRbsPerBand_[plane][antenna][band].ueAllocatedBytesMap_[nodeId];
     }
 

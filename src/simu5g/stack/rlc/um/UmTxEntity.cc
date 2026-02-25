@@ -10,7 +10,9 @@
 //
 
 #include "simu5g/stack/rlc/um/UmTxEntity.h"
-#include "simu5g/stack/rlc/am/packet/LteRlcAmPdu.h"
+#include "simu5g/stack/rlc/packet/LteRlcPdu_m.h"
+#include "simu5g/stack/rlc/packet/LteRlcNewDataTag_m.h"
+#include "simu5g/stack/rlc/packet/PdcpTrackingTag_m.h"
 
 #include "simu5g/stack/packetFlowObserver/PacketFlowObserverUe.h"
 #include "simu5g/stack/packetFlowObserver/PacketFlowObserverEnb.h"
@@ -25,27 +27,22 @@ using namespace inet;
  * Main functions
  */
 
-void UmTxEntity::initialize()
+void UmTxEntity::initialize(int stage)
 {
-    sno_ = 0;
-    firstIsFragment_ = false;
-    notifyEmptyBuffer_ = false;
-    holdingDownstreamInPackets_ = false;
+    if (stage == inet::INITSTAGE_LOCAL) {
+        LteMacBase *mac = inet::getConnectedModule<LteMacBase>(getParentModule()->gate("RLC_to_MAC"), 0);
 
-    LteMacBase *mac = inet::getConnectedModule<LteMacBase>(getParentModule()->gate("RLC_to_MAC"), 0);
+        // store the node id of the owner module
+        ownerNodeId_ = mac->getMacNodeId();
 
-    // store the node id of the owner module
-    ownerNodeId_ = mac->getMacNodeId();
-
-    // get the reference to the RLC module
-    lteRlc_.reference(this, "umModule", true);
-    queueSize_ = lteRlc_->par("queueSize");
-    queueLength_ = 0;
+        // get the reference to the RLC module
+        lteRlc_.reference(this, "umModule", true);
+        queueSize_ = lteRlc_->par("queueSize");
 
     packetFlowObserver_.reference(this, "packetFlowObserverModule", false);
 
     // @author Alessandro Noferi
-    if (mac->getNodeType() == ENODEB || mac->getNodeType() == GNODEB) {
+    if (mac->getNodeType() == NODEB) {
         if (packetFlowObserver_) {
             EV << "UmTxEntity::initialize - RLC layer is for a base station" << endl;
             ASSERT(check_and_cast<PacketFlowObserverEnb *>(packetFlowObserver_.get()));
@@ -57,7 +54,8 @@ void UmTxEntity::initialize()
             ASSERT(check_and_cast<PacketFlowObserverUe *>(packetFlowObserver_.get()));
         }
     }
-    burstStatus_ = INACTIVE;
+        burstStatus_ = INACTIVE;
+    }
 }
 
 bool UmTxEntity::enque(cPacket *pkt)
@@ -95,9 +93,9 @@ void UmTxEntity::rlcPduMake(int pduLength)
     while (!sduQueue_.isEmpty() && pduLength > 0) {
         // detach data from the SDU buffer
         auto pkt = check_and_cast<inet::Packet *>(sduQueue_.front());
-        auto rlcSdu = pkt->peekAtFront<LteRlcSdu>();
-        unsigned int sduSequenceNumber = rlcSdu->getSnoMainPacket();
-        int sduLength = rlcSdu->getLengthMainPacket(); // length without the SDU header
+        auto pdcpTag = pkt->getTag<PdcpTrackingTag>();
+        unsigned int sduSequenceNumber = pdcpTag->getPdcpSequenceNumber();
+        int sduLength = pdcpTag->getOriginalPacketLength();
 
         if (fragmentInfo != nullptr) {
             if (fragmentInfo->pkt != pkt)
@@ -314,17 +312,16 @@ void UmTxEntity::resumeDownstreamInPackets()
     // move all SDUs in the holding buffer to the TX buffer
     while (!sduHoldingQueue_.isEmpty()) {
         auto pktRlc = check_and_cast<inet::Packet *>(sduHoldingQueue_.front());
-        auto rlcHeader = pktRlc->peekAtFront<LteRlcSdu>();
 
         sduHoldingQueue_.pop();
 
         // store the SDU in the TX buffer
         if (enque(pktRlc)) {
             // create a message to notify the MAC layer that the queue contains new data
-            auto newDataPkt = inet::makeShared<LteRlcPduNewData>();
             // make a copy of the RLC SDU
             auto pktRlcdup = pktRlc->dup();
-            pktRlcdup->insertAtFront(newDataPkt);
+            // add tag to indicate new data availability to MAC
+            pktRlcdup->addTag<LteRlcNewDataTag>();
             // send the new data indication to the MAC
             lteRlc_->sendToLowerLayer(pktRlcdup);
         }
@@ -339,7 +336,7 @@ void UmTxEntity::resumeDownstreamInPackets()
 void UmTxEntity::rlcHandleD2DModeSwitch(bool oldConnection, bool clearBuffer)
 {
     if (oldConnection) {
-        if (getNodeTypeById(ownerNodeId_) == ENODEB || getNodeTypeById(ownerNodeId_) == GNODEB) {
+        if (getNodeTypeById(ownerNodeId_) == NODEB) {
             EV << NOW << " UmRxEntity::rlcHandleD2DModeSwitch - nothing to do on DL leg of IM flow" << endl;
             return;
         }
@@ -373,4 +370,3 @@ void UmTxEntity::rlcHandleD2DModeSwitch(bool oldConnection, bool clearBuffer)
 }
 
 } //namespace
-

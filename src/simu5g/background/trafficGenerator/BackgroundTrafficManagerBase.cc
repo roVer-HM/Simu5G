@@ -50,15 +50,14 @@ void BackgroundTrafficManagerBase::initialize(int stage)
     if (stage == inet::INITSTAGE_LOCAL) {
         numBgUEs_ = par("numBgUes");
         binder_.reference(this, "binderModule", true);
-    }
-    if (stage == inet::INITSTAGE_PHYSICAL_ENVIRONMENT) {
+
         // create vector of BackgroundUEs
         for (int i = 0; i < numBgUEs_; i++)
             bgUe_.push_back(check_and_cast<TrafficGeneratorBase *>(getParentModule()->getSubmodule("bgUE", i)->getSubmodule("generator")));
 
         phyPisaData_ = &(binder_->phyPisaData);
     }
-    if (stage == inet::INITSTAGE_LAST - 1) {
+    if (stage == INITSTAGE_SIMU5G_BACKGROUNDTRAFFICMANAGER) {
         BgTrafficManagerInfo *info = new BgTrafficManagerInfo();
         info->init = false;
         info->bgTrafficManager = this;
@@ -164,7 +163,7 @@ Cqi BackgroundTrafficManagerBase::computeCqiFromSinr(double sinr)
 
 TrafficGeneratorBase *BackgroundTrafficManagerBase::getTrafficGenerator(MacNodeId bgUeId)
 {
-    int index = bgUeId - BGUE_MIN_ID;
+    int index = num(bgUeId) - BGUE_MIN_ID;
     return bgUe_.at(index);
 }
 
@@ -206,13 +205,13 @@ std::list<int>::const_iterator BackgroundTrafficManagerBase::getWaitingForRacUes
 
 unsigned int BackgroundTrafficManagerBase::getBackloggedUeBuffer(MacNodeId bgUeId, Direction dir, bool rtx)
 {
-    int index = bgUeId - BGUE_MIN_ID;
+    int index = num(bgUeId) - BGUE_MIN_ID;
     return bgUe_.at(index)->getBufferLength(dir, rtx);
 }
 
 unsigned int BackgroundTrafficManagerBase::consumeBackloggedUeBytes(MacNodeId bgUeId, unsigned int bytes, Direction dir, bool rtx)
 {
-    int index = bgUeId - BGUE_MIN_ID;
+    int index = num(bgUeId) - BGUE_MIN_ID;
     int newBuffLen = bgUe_.at(index)->consumeBytes(bytes, dir, rtx);
 
     if (newBuffLen == 0) { // bg UE is no longer active
@@ -228,7 +227,7 @@ void BackgroundTrafficManagerBase::racHandled(MacNodeId bgUeId)
 {
     Enter_Method("BackgroundTrafficManagerBase::racHandled");
 
-    int index = bgUeId - BGUE_MIN_ID;
+    int index = num(bgUeId) - BGUE_MIN_ID;
 
     waitingForRac_.remove(index);
 
@@ -260,4 +259,3 @@ void BackgroundTrafficManagerBase::initializeAvgInterferenceComputation()
 }
 
 } //namespace
-

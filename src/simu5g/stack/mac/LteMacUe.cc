@@ -21,7 +21,9 @@
 #include "simu5g/stack/mac/packet/LteRac_m.h"
 #include "simu5g/stack/mac/packet/LteSchedulingGrant.h"
 #include "simu5g/stack/mac/scheduler/LteSchedulerUeUl.h"
-#include "simu5g/stack/rlc/packet/LteRlcDataPdu.h"
+#include "simu5g/stack/rlc/packet/LteRlcPdu_m.h"
+#include "simu5g/stack/rlc/packet/LteRlcNewDataTag_m.h"
+#include "simu5g/stack/rlc/packet/PdcpTrackingTag_m.h"
 
 namespace simu5g {
 
@@ -53,19 +55,14 @@ LteMacUe::~LteMacUe()
 void LteMacUe::initialize(int stage)
 {
     LteMacBase::initialize(stage);
-    if (stage == INITSTAGE_LOCAL) {
+    if (stage == inet::INITSTAGE_LOCAL) {
+        bool isNr = strcmp(getFullName(), "nrMac") == 0;
+        nodeId_ = MacNodeId(networkNode_->par(isNr ? "nrMacNodeId" : "macNodeId").intValue());
     }
-    else if (stage == INITSTAGE_LINK_LAYER) {
-        if (strcmp(getFullName(), "nrMac") == 0)
-            cellId_ = MacNodeId(networkNode_->par("nrMasterId").intValue());
-        else
-            cellId_ = MacNodeId(networkNode_->par("masterId").intValue());
+    else if (stage == INITSTAGE_SIMU5G_MAC_SCHEDULER_CREATION) {
+        cellId_ = binder_->getServingNode(nodeId_);
     }
-    else if (stage == INITSTAGE_NETWORK_LAYER) {
-        if (strcmp(getFullName(), "nrMac") == 0)
-            nodeId_ = MacNodeId(networkNode_->par("nrMacNodeId").intValue());
-        else
-            nodeId_ = MacNodeId(networkNode_->par("macNodeId").intValue());
+    else if (stage == inet::INITSTAGE_NETWORK_LAYER) {
 
         // display node ID above module icon
         getDisplayString().setTagArg("t", 0, opp_stringf("nodeId=%d", nodeId_).c_str());
@@ -92,21 +89,16 @@ void LteMacUe::initialize(int stage)
              * It checks the NIC, i.e. Lte or NR and chooses the correct UeCollector to connect.
              */
 
-            cModule *module = binder_->getModuleByMacNodeId(cellId_);
-            std::string nodeType;
-            if (module->hasPar("nodeType"))
-                nodeType = module->par("nodeType").stdstringValue();
+            bool isNrCell = binder_->isGNodeB(cellId_);
 
-            RanNodeType eNBType = binder_->getBaseStationTypeById(cellId_);
-
-            if (isNrUe(nodeId_) && eNBType == GNODEB) {
+            if (isNrUe(nodeId_) && isNrCell) {
                 EV << "I am a NR Ue with node id: " << nodeId_ << " connected to gnb with id: " << cellId_ << endl;
                 if (!par("collectorModule").isEmptyString()) {
                     UeStatsCollector *ue = getModuleFromPar<UeStatsCollector>(par("collectorModule"), this);
                     binder_->addUeCollectorToEnodeB(nodeId_, ue, cellId_);
                 }
             }
-            else if (!isNrUe(nodeId_) && eNBType == ENODEB) {
+            else if (!isNrUe(nodeId_) && !isNrCell) {
                 EV << "I am an LTE Ue with node id: " << nodeId_ << " connected to gnb with id: " << cellId_ << endl;
                 if (!par("collectorModule").isEmptyString()) {
                     UeStatsCollector *ue = getModuleFromPar<UeStatsCollector>(par("collectorModule"), this);
@@ -136,13 +128,13 @@ void LteMacUe::initialize(int stage)
             binder_->setMacNodeId(Ipv4Address(extHostAddress), nodeId_);
         }
     }
-    else if (stage == inet::INITSTAGE_TRANSPORT_LAYER) {
+    else if (stage == INITSTAGE_SIMU5G_BINDER_ACCESS) {
         const auto& channelModels = phy_->getChannelModels();
         for (const auto& cm : channelModels) {
             lcgScheduler_[cm.first] = new LteSchedulerUeUl(this, cm.first);
         }
     }
-    else if (stage == inet::INITSTAGE_LAST) {
+    else if (stage == INITSTAGE_SIMU5G_TTI_SETUP) {
 
         // Start TTI tick
         ttiTick_ = new cMessage("ttiTick_");
@@ -229,7 +221,7 @@ int LteMacUe::macSduRequest()
                 macSduRequest->setLcid(destCid.getLcid());
                 macSduRequest->setSduSize(bit->second);
                 pkt->insertAtFront(macSduRequest);
-                *(pkt->addTag<FlowControlInfo>()) = connDescOut_[destCid].flowInfo;
+                *(pkt->addTag<FlowControlInfo>()) = connDescOut_[destCid].flowInfo.toFlowControlInfo();
                 sendUpperPackets(pkt);
 
                 numRequestedSdus++;
@@ -255,22 +247,21 @@ bool LteMacUe::bufferizePacket(cPacket *cpkt)
     auto lteInfo = pkt->getTagForUpdate<FlowControlInfo>();
 
     // obtain the cid from the packet information
-    MacCid cid = ctrlInfoToMacCid(lteInfo.get());
+    MacCid cid = MacCid(lteInfo->getDestId(), lteInfo->getLcid());
+    ASSERT(connDescOut_.find(cid) != connDescOut_.end());
 
-    // check if queues exist, create them if they don't
-    if (connDescOut_.find(cid) == connDescOut_.end())
-        createOutgoingConnection(cid, *lteInfo);
     OutgoingConnectionInfo& connInfo = connDescOut_.at(cid);
     LteMacQueue *queue = connInfo.queue;
     LteMacBuffer *vqueue = connInfo.buffer;
 
     // this packet is used to signal the arrival of new data in the RLC buffers
-    if (checkIfHeaderType<LteRlcPduNewData>(pkt)) {
+    if (pkt->findTag<LteRlcNewDataTag>()) {
+        // remove the tag since it's just a notification
+        pkt->removeTag<LteRlcNewDataTag>();
         // update the virtual buffer for this connection
         // build the virtual packet corresponding to this incoming packet
-        pkt->popAtFront<LteRlcPduNewData>();
-        auto rlcSdu = pkt->peekAtFront<LteRlcSdu>();
-        PacketInfo vpkt(rlcSdu->getLengthMainPacket(), pkt->getTimestamp());
+        auto pdcpTag = pkt->getTag<PdcpTrackingTag>();
+        PacketInfo vpkt(pdcpTag->getOriginalPacketLength(), pkt->getTimestamp());
         vqueue->pushBack(vpkt);
 
         delete pkt;
@@ -375,7 +366,14 @@ void LteMacUe::macPduMake(MacCid cid)
                 auto pkt = check_and_cast<Packet *>(connInfo.queue->popFront());
                 drop(pkt);
 
+                // Remove PdcpTrackingTag as it's no longer needed below MAC layer
+                // TODO It won't succeed if tag is on a packet *inside* an lteRlcFragment,
+                // but removing those would be very complicated. Tag will be removed anyway
+                // on the receiver side.
+                pkt->removeTagIfPresent<PdcpTrackingTag>();
+
                 auto macPdu = macPkt->removeAtFront<LteMacPdu>();
+
                 macPdu->pushSdu(pkt);
                 macPkt->insertAtFront(macPdu);
                 sduPerCid--;
@@ -535,7 +533,7 @@ void LteMacUe::macPduUnmake(cPacket *cpkt)
 {
     auto pkt = check_and_cast<Packet *>(cpkt);
     auto macPdu = pkt->removeAtFront<LteMacPdu>();
-    auto userControlInfo = pkt->getTag<UserControlInfo>();
+    auto userInfo = pkt->getTag<UserControlInfo>();
 
     while (macPdu->hasSdu()) {
         // Extract and send SDU
@@ -544,13 +542,15 @@ void LteMacUe::macPduUnmake(cPacket *cpkt)
 
         EV << "LteMacBase: pduUnmaker extracted SDU" << endl;
 
+        // fill FlowControlInfo from stored descriptors
         auto flowInfo = upPkt->getTag<FlowControlInfo>();
-        MacNodeId senderId = flowInfo->getSourceId();
+        MacNodeId senderId = userInfo->getSourceId();
         LogicalCid lcid = flowInfo->getLcid();
         MacCid cid = MacCid(senderId, lcid);
-        if (connDescIn_.find(cid) == connDescIn_.end()) {
-            createIncomingConnection(cid, *flowInfo);
-        }
+        ASSERT(connDescIn_.find(cid) != connDescIn_.end());
+        upPkt->removeTag<FlowControlInfo>();
+        *upPkt->addTag<FlowControlInfo>() = connDescIn_[cid].toFlowControlInfo();
+
         sendUpperPackets(upPkt);
     }
 
@@ -563,7 +563,7 @@ void LteMacUe::macPduUnmake(cPacket *cpkt)
 void LteMacUe::handleUpperMessage(cPacket *pktAux)
 {
     auto pkt = check_and_cast<Packet *>(pktAux);
-    bool isLteRlcPduNewDataInd = checkIfHeaderType<LteRlcPduNewData>(pkt);
+    bool isLteRlcPduNewDataInd = (pkt->findTag<LteRlcNewDataTag>() != nullptr);
 
     // bufferize packet
     bufferizePacket(pkt);
@@ -965,9 +965,13 @@ void LteMacUe::deleteQueues(MacNodeId nodeId)
     Enter_Method_Silent();
 
 
-    // Delete each connection
+    // Delete outgoing connection descriptors
     for (auto cid : getActiveConnectionCids())
         deleteOutgoingConnection(cid);
+
+    // delete incoming connection descriptors
+    for (auto it = connDescIn_.begin(); it != connDescIn_.end(); )
+        it = connDescIn_.erase(it);
 
     // delete H-ARQ buffers
     for (auto& [key, buffer] : harqTxBuffers_) {

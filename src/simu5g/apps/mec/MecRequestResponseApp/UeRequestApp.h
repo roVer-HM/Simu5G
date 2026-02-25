@@ -34,7 +34,7 @@ class UeRequestApp : public cSimpleModule
     //communication to device app and mec app
     inet::UdpSocket socket;
 
-    unsigned int sno_;
+    unsigned int sno_ = 0;
     inet::B requestPacketSize_;
     double requestPeriod_;
 
@@ -79,7 +79,6 @@ class UeRequestApp : public cSimpleModule
     int numInitStages() const override { return inet::NUM_INIT_STAGES; }
     void initialize(int stage) override;
     void handleMessage(cMessage *msg) override;
-    void finish() override;
 
     void emitStats();
 

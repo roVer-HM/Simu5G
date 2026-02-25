@@ -180,18 +180,25 @@ void LteMacBase::fromPhy(cPacket *pktAux)
     }
 }
 
-void LteMacBase::createOutgoingConnection(MacCid cid, const FlowControlInfo& lteInfo)
+void LteMacBase::createOutgoingConnection(MacCid cid, const FlowDescriptor& connInfo)
 {
+    Enter_Method("createOutgoingConnection(%s)", cid.str().c_str());
+    EV << "LteMacBase::createOutgoingConnection - CID: " << cid
+       << " sourceId: " << connInfo.getSourceId()
+       << " destId: " << connInfo.getDestId()
+       << " direction: " << dirToA((Direction)connInfo.getDirection())
+       << " multicastGroupId: " << connInfo.getMulticastGroupId() << endl;
+
     ASSERT(connDescOut_.find(cid) == connDescOut_.end());
 
     LteMacQueue* realBuffer = new LteMacQueue(queueSize_);
     LteMacBuffer* virtualBuffer = new LteMacBuffer();
     take(realBuffer);
 
-    connDescOut_[cid] = OutgoingConnectionInfo(lteInfo, realBuffer, virtualBuffer);
+    connDescOut_[cid] = OutgoingConnectionInfo(connInfo, realBuffer, virtualBuffer);
 
     // register connection to LCG map.
-    LteTrafficClass tClass = (LteTrafficClass)lteInfo.getTraffic();
+    LteTrafficClass tClass = (LteTrafficClass)connInfo.getTraffic();
     lcgMap_.insert(LcgPair(tClass, CidBufferPair(cid, virtualBuffer)));
 }
 
@@ -226,10 +233,17 @@ void LteMacBase::deleteOutgoingConnection(MacCid cid)
     connDescOut_.erase(it);
 }
 
-void LteMacBase::createIncomingConnection(MacCid cid, const FlowControlInfo& lteInfo)
+void LteMacBase::createIncomingConnection(MacCid cid, const FlowDescriptor& connInfo)
 {
+    Enter_Method("createIncomingConnection(%s)", cid.str().c_str());
+    EV << "LteMacBase::createIncomingConnection - CID: " << cid
+       << " sourceId: " << connInfo.getSourceId()
+       << " destId: " << connInfo.getDestId()
+       << " direction: " << dirToA((Direction)connInfo.getDirection())
+       << " multicastGroupId: " << connInfo.getMulticastGroupId() << endl;
+
     ASSERT(connDescIn_.find(cid) == connDescIn_.end());
-    connDescIn_[cid] = lteInfo;
+    connDescIn_[cid] = connInfo;
 }
 
 // note: this method is never called, as it is overridden (in the same way!) in both LteMacEnb and LteMacUe
@@ -244,9 +258,10 @@ bool LteMacBase::bufferizePacket(cPacket *cpkt)
     // obtain the CID from the packet information
     MacCid cid = ctrlInfoToMacCid(lteInfo.get());
 
-    // check if queues exist, create them if they don't
+    // check if queues exist
     if (connDescOut_.find(cid) == connDescOut_.end())
-        createOutgoingConnection(cid, *lteInfo);
+        //TODO this is dead code -- this throw needs to be added in subclasses too!!!!!!!!!!!
+        throw cRuntimeError("LteMacBase::bufferizePacket - Buffer for CID %s not found. Connection must be established via Binder SMF before use.", cid.str().c_str());
 
     OutgoingConnectionInfo& connInfo = connDescOut_.at(cid);
     LteMacQueue *queue = connInfo.queue;
@@ -281,15 +296,24 @@ bool LteMacBase::bufferizePacket(cPacket *cpkt)
 
 void LteMacBase::deleteQueues(MacNodeId nodeId)
 {
-    // Create a list of CIDs to delete (to avoid iterator invalidation)
+    // Create a list of outgoing connections CIDs to delete
     std::vector<MacCid> cidsToDelete;
     for (const auto& [cid, connInfo] : connDescOut_)
         if (cid.getNodeId() == nodeId)
             cidsToDelete.push_back(cid);
 
-    // Delete each connection using the new method
     for (const auto& cid : cidsToDelete)
         deleteOutgoingConnection(cid);
+
+    // delete incoming connection descriptors for the departing node
+    for (auto it = connDescIn_.begin(); it != connDescIn_.end(); ) {
+        if (it->first.getNodeId() == nodeId) {
+            it = connDescIn_.erase(it);
+        }
+        else {
+            ++it;
+        }
+    }
 
     // delete H-ARQ buffers
     for (auto& [key, harqBuffers] : harqTxBuffers_) {
@@ -354,18 +378,10 @@ void LteMacBase::initialize(int stage)
 
         // Set the MAC MIB
 
-        muMimo_ = par("muMimo");
-
         harqProcesses_ = par("harqProcesses");
 
         // statistics
         statDisplay_ = par("statDisplay");
-
-        totalOverflowedBytes_ = 0;
-        nrFromUpper_ = 0;
-        nrFromLower_ = 0;
-        nrToUpper_ = 0;
-        nrToLower_ = 0;
 
         packetFlowObserver_.reference(this, "packetFlowObserverModule", false);
 
@@ -435,13 +451,9 @@ void LteMacBase::discardMacPdu(const inet::Packet *macPdu)
 void LteMacBase::discardRlcPdu(inet::Ptr<const UserControlInfo> lteInfo, unsigned int rlcSno)
 {
     Direction dir = (Direction)lteInfo->getDirection();
-    LogicalCid lcid = lteInfo->getLcid();
+    LogicalCid lcid = lteInfo->getPacketLcid();
     if (packetFlowObserver_ != nullptr && (dir == DL || dir == UL))
         packetFlowObserver_->discardRlcPdu(lcid, rlcSno);
-}
-
-void LteMacBase::finish()
-{
 }
 
 void LteMacBase::deleteModule() {

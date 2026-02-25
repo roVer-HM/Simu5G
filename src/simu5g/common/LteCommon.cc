@@ -177,18 +177,6 @@ FeedbackType getFeedbackType(std::string s)
     return WIDEBAND; // default
 }
 
-FeedbackGeneratorType getFeedbackGeneratorType(std::string s)
-{
-    if (s == "IDEAL")
-        return IDEAL;
-    if (s == "REAL")
-        return REAL;
-    if (s == "DAS_AWARE")
-        return DAS_AWARE;
-    //default
-    return IDEAL;
-}
-
 RbAllocationType getRbAllocationType(std::string s)
 {
     if (s == "distributed")
@@ -243,39 +231,30 @@ LtePhyFrameType aToPhyFrameType(std::string s)
     return static_cast<LtePhyFrameType>(omnetpp::cEnum::get("simu5g::LtePhyFrameType")->lookup(s.c_str(), UNKNOWN_TYPE));
 }
 
-const std::string nodeTypeToA(const RanNodeType t)
+const char *nodeTypeToA(RanNodeType t)
 {
-    const char * str = omnetpp::cEnum::get("simu5g::RanNodeType")->getStringFor((intval_t)t);
-    return str ? str : "UNKNOWN_NODE_TYPE";
+    switch (t) {
+        case UE: return "UE";
+        case NODEB: return "NODEB";
+        default: return "UNKNOWN";
+    }
 }
 
 RanNodeType aToNodeType(std::string name)
 {
-    return static_cast<RanNodeType>(omnetpp::cEnum::get("simu5g::RanNodeType")->lookup(name.c_str(), UNKNOWN_NODE_TYPE));
-}
-
-const std::string applicationTypeToA(ApplicationType a)
-{
-    const char * str = omnetpp::cEnum::get("simu5g::ApplicationType")->getStringFor((intval_t)a);
-    return str ? str : "UNKNOWN_APP";
-}
-
-ApplicationType aToApplicationType(std::string s)
-{
-    return static_cast<ApplicationType>(omnetpp::cEnum::get("simu5g::ApplicationType")->lookup(s.c_str(), UNKNOWN_APP));
-}
-
-const std::string fbGeneratorTypeToA(FeedbackGeneratorType type)
-{
-    const char * str = omnetpp::cEnum::get("simu5g::FeedbackGeneratorType")->getStringFor((intval_t)type);
-    return str ? str : "UNKNOW_FB_GEN_TYPE";
+    if (name == "UE")
+        return UE;
+    else if (name == "ENODEB" || name == "GNODEB")
+        return NODEB;
+    else
+        throw cRuntimeError("Unknown node type: %s", name.c_str());
 }
 
 RanNodeType getNodeTypeById(MacNodeId id)
 {
-    if (id >= ENB_MIN_ID && id <= ENB_MAX_ID)
-        return ENODEB;
-    if (id >= UE_MIN_ID && id <= UE_MAX_ID)
+    if (num(id) >= ENB_MIN_ID && num(id) <= ENB_MAX_ID)
+        return NODEB;
+    if (num(id) >= UE_MIN_ID && num(id) <= UE_MAX_ID)
         return UE;
     return UNKNOWN_NODE_TYPE;
 }
@@ -284,17 +263,17 @@ void verifyControlInfo(const FlowControlInfo *info)
 {
     auto srcType = getNodeTypeById(info->getSourceId());
     auto destType = getNodeTypeById(info->getDestId());
-    bool isMulticast = info->getMulticastGroupId() != -1;
+    bool isMulticast = info->getMulticastGroupId() != NODEID_NONE;
 
     switch ((Direction)info->getDirection()) {
         case UL:
             ASSERT(!isMulticast);
             ASSERT(srcType == UE);
-            ASSERT(destType == ENODEB);
+            ASSERT(destType == NODEB);
             break;
         case DL:
             ASSERT(!isMulticast);
-            ASSERT(srcType == ENODEB);
+            ASSERT(srcType == NODEB);
             ASSERT(destType == UE);
             break;
         case D2D:
@@ -319,7 +298,7 @@ bool isBaseStation(CoreNodeType nodeType)
 
 bool isNrUe(MacNodeId id)
 {
-    return getNodeTypeById(id) == UE && id >= NR_UE_MIN_ID;
+    return getNodeTypeById(id) == UE && num(id) >= NR_UE_MIN_ID;
 }
 
 const std::string planeToA(Plane p)
@@ -337,17 +316,17 @@ const std::string planeToA(Plane p)
 const std::string DeploymentScenarioToA(DeploymentScenario type)
 {
     const char * str = omnetpp::cEnum::get("simu5g::DeploymentScenario")->getStringFor((intval_t)type);
-    return str ? str : "UNKNOW_SCENARIO";
+    return str ? str : "UNKNOWN_SCENARIO";
 }
 
 DeploymentScenario aToDeploymentScenario(std::string s)
 {
-    return static_cast<DeploymentScenario>(omnetpp::cEnum::get("simu5g::DeploymentScenario")->lookup(s.c_str(), UNKNOW_SCENARIO));
+    return static_cast<DeploymentScenario>(omnetpp::cEnum::get("simu5g::DeploymentScenario")->lookup(s.c_str(), UNKNOWN_SCENARIO));
 }
 
-bool isMulticastConnection(LteControlInfo *lteInfo)
+bool isMulticastConnection(FlowControlInfo *lteInfo)
 {
-    return lteInfo->getMulticastGroupId() >= 0;
+    return lteInfo->getMulticastGroupId() != NODEID_NONE;
 }
 
 
@@ -375,8 +354,11 @@ MacNodeId ctrlInfoToUeId(const FlowControlInfo *info)
     switch (info->getDirection()) {
         case DL: case D2D:
             return info->getDestId();
-        case UL: case D2D_MULTI: // D2D_MULTI goes here, since the destination id is meaningless in that context
+        case UL:
             return info->getSourceId();
+        case D2D_MULTI:
+            ASSERT(info->getMulticastGroupId() != NODEID_NONE);
+            return info->getMulticastGroupId();
         default:
             throw cRuntimeError("ctrlInfoToMacCid - unknown direction %d", info->getDirection());
     }
@@ -502,7 +484,7 @@ std::string EnbInfo::str() const
 {
     std::ostringstream oss;
     oss << "EnbInfo[id=" << id << ", module=" << (eNodeB ? eNodeB->getFullName() : "null")
-        << ", type=" << nodeTypeToA(nodeType) << "/" << (type == MACRO_ENB ? "MACRO" : "MICRO")
+        << ", type=" << (isNr ? "NR" : "LTE") << "/" << (type == MACRO_ENB ? "MACRO" : "MICRO")
         << ", init=" << (init ? "Y" : "N") << ", txPwr=" << txPwr << "dBm]";
     return oss.str();
 }

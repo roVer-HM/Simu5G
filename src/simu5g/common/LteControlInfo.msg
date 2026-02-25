@@ -18,13 +18,6 @@ import simu5g.stack.mac.amc.UserTxParams;
 
 namespace simu5g;
 
-
-class RbMap
-{
-    @existingClass;
-    @opaque;
-}
-
 //
 // Control info usage in Simu5G simulator
 //
@@ -38,8 +31,6 @@ class RbMap
 // to avoid replication of common parts.
 //
 // The Mac layer receives packets (MAC sdu) with FlowControlInfo attached
-// and creates a MAC pdu with UserControlInfo attached.
-// The MacPduMaker does the job.
 //
 // NOTE: a MAC pdu contains different MAC sdus that may belong to different flows.
 //
@@ -51,53 +42,46 @@ class RbMap
 // This class contains information present in both Flow and User ControlInfo:
 // - Source MAC Node ID
 // - Destination MAC Node ID
+// - D2D MAC Node Ids
+// - Traffic Direction
+// - Connection information: LCID
 //
 class LteControlInfo extends inet::TagBase {
-    //# Information shared between FlowControlInfo and UserControlInfo
-
     MacNodeId sourceId = NODEID_NONE;                    // Source MacNodeId
     MacNodeId destId = NODEID_NONE;                      // Destination MacNodeId
     unsigned short direction enum(Direction);            // Traffic Direction (UL, DL, D2D)
     MacNodeId d2dTxPeerId = NODEID_NONE;
     MacNodeId d2dRxPeerId = NODEID_NONE;
-
-    //# Traffic Control Information
-
-    unsigned short application enum(ApplicationType) = 0;    // Application Type
-    unsigned short traffic enum(LteTrafficClass) = 0;        // Lte Traffic Type
-
-    //# RLC Control Information
-
-    unsigned short rlcType enum(LteRlcType) = 0;            // RLC Traffic Type
-
-    //# Connection Information
-
-    uint16 lcid = 0;                                        // Logical Connection Identifier
-    int32 multicastGroupId = -1;                        // Identifier for a multicast group (it is in range [0:[2^28)-1] )
-                                                        // For unicast communications, this field is -1
 }
 
 //
 // @class FlowControlInfo
-// @brief contains information flowing from LteIp to Mac
-//
-// It contains the following information:
-// - IP Control Informations: the four tuple, a sequence number and
-//   the header size (IP + Transport) to be used by pdcp ROHC.
-// - Traffic Control Informations: Application, Direction, Traffic
-// - RLC Control Informations: the traffic type (TM, UM, AM)
-// - Connection information: Logical CID
+// @brief Contains flow information in layers above the MAC
 //
 class FlowControlInfo extends LteControlInfo {
-    //# IP Control Information
+    uint16 lcid = 0;                                     //  Logical Channel Identifier
+    MacNodeId multicastGroupId = NODEID_NONE;            // Identifier for a multicast group (it is in range [0:[2^28)-1] ) -- TODO probably should not be needed
 
-    uint32 srcAddr = 0;                     // source IP
-    uint32 dstAddr = 0;                     // destination IP
-    uint16 typeOfService = 0;               // IP Type Of Service
-    unsigned int sequenceNumber = 0;        // packet sequence number
-    int headerSize = 0;                     // IP + Transport header size (used by pdcp ROHC)
-    bool useNR = false;                     // flag for sending this packet using NR
+    unsigned short traffic enum(LteTrafficClass) = 0;       // Lte Traffic Type; analogous to LCG IDs (Logical Channel Group Identifiers) in LTE/NR
+    unsigned short rlcType enum(LteRlcType) = 0;            // RLC Traffic Type
 }
+
+cplusplus (FlowControlInfo::setLcid) {{
+    ASSERT(lcid <= 63);
+}}
+
+// WIP: Describes logical channels (identified by remote node + LCID) in MAC
+class FlowDescriptor extends FlowControlInfo {
+}
+
+cplusplus(FlowDescriptor) {{
+    static FlowDescriptor fromFlowControlInfo(const FlowControlInfo& ci) {
+       return FlowDescriptor(*(FlowDescriptor*)&ci);
+    }
+    FlowControlInfo toFlowControlInfo() const {
+       return FlowControlInfo(*this);
+    }
+}}
 
 //
 // @class UserControlInfo
@@ -109,6 +93,10 @@ class FlowControlInfo extends LteControlInfo {
 //   txMode, Resource blocks used, RemoteSet
 //
 class UserControlInfo extends LteControlInfo {
+    //TODO packetLcid and packetMulticastGroupId make no sense in UserControlInfo, eliminate
+    uint16 packetLcid = 0;                 //  only used to indicate BSR type in MAC
+    MacNodeId packetMulticastGroupId = NODEID_NONE;     // Identifier for a multicast group (it is in range [0:[2^28)-1] ) -- TODO seems to be used instead of proper MBMS RNTIs stored in destId
+
     bool isNr = false;
     inet::GHz carrierFrequency;       // carrier frequency
 
@@ -121,17 +109,12 @@ class UserControlInfo extends LteControlInfo {
 
     //# PHY Control Informations
 
-    bool isCorruptible = false;                         // Frame is corruptible
-    bool isBroadcast = false;                           // Broadcast packet
-    bool deciderResult = false;                         // Decider result
-    double blerTh = NaN;                                // Calculated BLER threshold for this transmission
-    double blerValue = NaN;                             // Extracted BLER for this transmission (blerValue > blerTh ==> corrupted)
     unsigned short txMode = 0 enum(TxMode);             // Traffic Type
     unsigned int frameType = 0 enum(LtePhyFrameType);   // Frame Type
     double txPower = NaN;                               //Transmission Power
     double d2dTxPower = NaN;                            // D2D Transmission Power (used for feedback reporting of D2D links
     // blocks granted on all Remotes, all Bands
-    unsigned int totalGrantedBlocks = 0;
+    unsigned int totalGrantedBlocks = 0;                // note: currently unread
     unsigned int grantId = 0;                           // grantId related to the grand that allowed the sending of a MEC PDU (used only for MAC PDU sent by UEs)
 
     UserTxParams *userTxParams @owned;

@@ -108,11 +108,6 @@ class LteRealisticChannelModel : public LteChannelModel
     // Percentage of error probability reduction for each h-arq retransmission
     double harqReduction_;
 
-    // Eigen values of channel matrix, used to compute the rank
-    double lambdaMinTh_;
-    double lambdaMaxTh_;
-    double lambdaRatioTh_;
-
     // Antenna gain of eNodeB
     double antennaGainEnB_;
 
@@ -300,7 +295,7 @@ class LteRealisticChannelModel : public LteChannelModel
      * @param lteinfo pointer to the user control info
      * @param rsrpVector the received signal for each RB, if it has already been computed
      */
-    bool isError_D2D(LteAirFrame *frame, UserControlInfo *lteI, const std::vector<double>& rsrpVector) override;
+    bool isReceptionSuccessful_D2D(LteAirFrame *frame, UserControlInfo *lteI, const std::vector<double>& rsrpVector) override;
 
     /*
      * Compute the error probability of the transmitted packet according to cqi used, txmode, and the received power
@@ -309,19 +304,7 @@ class LteRealisticChannelModel : public LteChannelModel
      * @param frame pointer to the packet
      * @param lteinfo pointer to the user control info
      */
-    bool isError(LteAirFrame *frame, UserControlInfo *lteI) override;
-
-    /*
-     * The same as before but used for das TODO to be implemented
-     *
-     * @param frame pointer to the packet
-     * @param lteinfo pointer to the user control info
-     */
-    bool isErrorDas(LteAirFrame *frame, UserControlInfo *lteI) override
-    {
-        throw cRuntimeError("DAS PHY LAYER TO BE IMPLEMENTED");
-        return -1;
-    }
+    bool isReceptionSuccessful(LteAirFrame *frame, UserControlInfo *lteI) override;
 
     /*
      * Compute the path-loss attenuation according to the selected scenario

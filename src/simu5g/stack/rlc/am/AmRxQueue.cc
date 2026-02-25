@@ -13,8 +13,10 @@
 
 #include "simu5g/common/LteCommon.h"
 #include "simu5g/common/LteControlInfo.h"
+#include "simu5g/common/LteControlInfoTags_m.h"
 #include "simu5g/stack/mac/LteMacBase.h"
 #include "simu5g/stack/rlc/am/LteRlcAm.h"
+#include "simu5g/stack/rlc/packet/PdcpTrackingTag_m.h"
 
 namespace simu5g {
 
@@ -39,33 +41,26 @@ AmRxQueue::AmRxQueue() :
     // info for sending control messages to the transmitting entity is required
     lastSentAck_(0),  timer_(this)
 {
-    rxWindowDesc_.firstSeqNum_ = 0;
-    rxWindowDesc_.seqNum_ = 0;
     timer_.setTimerId(BUFFERSTATUS_T);
 }
 
-void AmRxQueue::initialize()
+void AmRxQueue::initialize(int stage)
 {
-    // Loading parameters from NED
-    rxWindowDesc_.windowSize_ = par("rxWindowSize");
-    ackReportInterval_ = par("ackReportInterval");
-    statusReportInterval_ = par("statusReportInterval");
+    if (stage == inet::INITSTAGE_LOCAL) {
+        // Loading parameters from NED
+        rxWindowDesc_.windowSize_ = par("rxWindowSize");
+        ackReportInterval_ = par("ackReportInterval");
+        statusReportInterval_ = par("statusReportInterval");
 
-    discarded_.resize(rxWindowDesc_.windowSize_);
-    received_.resize(rxWindowDesc_.windowSize_);
-    totalRcvdBytes_ = 0;
+        discarded_.resize(rxWindowDesc_.windowSize_);
+        received_.resize(rxWindowDesc_.windowSize_);
+        binder_.reference(this, "binderModule", true);
+        lteRlc_.reference(this, "amModule", true);
 
-    binder_.reference(this, "binderModule", true);
-    lteRlc_.reference(this, "amModule", true);
+        // Statistics
+        LteMacBase *mac = inet::getConnectedModule<LteMacBase>(getParentModule()->gate("RLC_to_MAC"), 0);
 
-    // Statistics
-    LteMacBase *mac = inet::getConnectedModule<LteMacBase>(getParentModule()->gate("RLC_to_MAC"), 0);
-
-    if (mac->getNodeType() == ENODEB || mac->getNodeType() == GNODEB) {
-        dir_ = UL;
-    }
-    else {
-        dir_ = DL;
+        dir_ = mac->getNodeType() == NODEB ? UL : DL;
     }
 }
 
@@ -234,12 +229,13 @@ void AmRxQueue::enque(Packet *pkt)
         auto orig = pkt->getTag<FlowControlInfo>();
         // Make a copy of the original control info
         flowControlInfo_ = orig->dup();
+
         // Swap source and destination fields
         flowControlInfo_->setSourceId(orig->getDestId());
-        flowControlInfo_->setSrcAddr(orig->getDstAddr());
-        flowControlInfo_->setTypeOfService(orig->getTypeOfService());
         flowControlInfo_->setDestId(orig->getSourceId());
-        flowControlInfo_->setDstAddr(orig->getSrcAddr());
+
+        ASSERT(pkt->findTag<IpFlowInd>() == nullptr); // Note: not swapping IpFlowInd srcAddr/dstAddr fields, as that tag is normally no longer present here
+
         // Set up other fields
         flowControlInfo_->setDirection((orig->getDirection() == DL) ? UL : DL);
     }
@@ -352,10 +348,6 @@ void AmRxQueue::passUp(const int index)
     }
 
     pkt->trim();
-
-    auto sdu = pkt->popAtFront<LteRlcAmSdu>();
-
-    EV << NOW << " AmRxQueue::passUp passing up SDU[" << sdu->getSnoMainPacket() << "] referenced by PDU at position " << index << endl;
 
     auto ci = pkt->getTag<FlowControlInfo>();
 
@@ -717,4 +709,3 @@ AmRxQueue::~AmRxQueue()
 }
 
 } //namespace
-

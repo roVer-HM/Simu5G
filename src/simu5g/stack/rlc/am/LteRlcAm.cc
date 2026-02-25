@@ -16,6 +16,9 @@
 #include "simu5g/stack/rlc/am/AmTxQueue.h"
 #include "simu5g/stack/rlc/am/AmRxQueue.h"
 #include "simu5g/stack/mac/packet/LteMacSduRequest.h"
+#include "simu5g/stack/rlc/packet/LteRlcNewDataTag_m.h"
+#include "simu5g/stack/rlc/packet/PdcpTrackingTag_m.h"
+#include "simu5g/stack/pdcp/packet/LtePdcpPdu_m.h"
 
 namespace simu5g {
 
@@ -111,12 +114,17 @@ void LteRlcAm::handleUpperMessage(cPacket *pktAux)
     if (txbuf == nullptr)
         txbuf = createTxBuffer(cid);
 
-    // Create a new RLC packet
-    auto rlcPkt = makeShared<LteRlcAmSdu>();
-    rlcPkt->setSnoMainPacket(lteInfo->getSequenceNumber());
-    rlcPkt->setChunkLength(B(RLC_HEADER_AM));
-    pkt->insertAtFront(rlcPkt);
+    // Extract sequence number from PDCP header
+    auto pdcpHeader = pkt->peekAtFront<LtePdcpHeader>();
+    unsigned int sequenceNumber = pdcpHeader->getSequenceNumber();
+
+    // Add PDCP tracking information
+    auto pdcpTag = pkt->addTag<PdcpTrackingTag>();
+    pdcpTag->setPdcpSequenceNumber(sequenceNumber);
+    pdcpTag->setOriginalPacketLength(pkt->getByteLength());
+
     drop(pkt);
+
     EV << NOW << " LteRlcAm : handleUpperMessage sending to AM TX Queue" << endl;
     // Fragment Packet
     txbuf->enque(pkt);
@@ -227,13 +235,18 @@ void LteRlcAm::indicateNewDataToMac(cPacket *pktAux) {
     // (MAC is only interested in FlowControlInfo tag and size)
 
     auto newData = new Packet("AM-NewData");
-    auto rlcSdu = inet::makeShared<LteRlcSdu>();
-    rlcSdu->setLengthMainPacket(pkt->getByteLength());
 
-    newData->insertAtFront(rlcSdu);
+    // Extract sequence number from PDCP header
+    auto pdcpHeader = pkt->peekAtFront<LtePdcpHeader>();
+    unsigned int sequenceNumber = pdcpHeader->getSequenceNumber();
 
-    auto newDataHdr = inet::makeShared<LteRlcPduNewData>();
-    newData->insertAtFront(newDataHdr);
+    // Add PDCP tracking information
+    auto pdcpTag = newData->addTag<PdcpTrackingTag>();
+    pdcpTag->setPdcpSequenceNumber(sequenceNumber);
+    pdcpTag->setOriginalPacketLength(pkt->getByteLength());
+
+    // add tag to indicate new data availability to MAC
+    newData->addTag<LteRlcNewDataTag>();
 
     newData->copyTags(*pkt);
 
@@ -245,16 +258,18 @@ void LteRlcAm::indicateNewDataToMac(cPacket *pktAux) {
  * Main functions
  */
 
-void LteRlcAm::initialize()
+void LteRlcAm::initialize(int stage)
 {
-    upInGate_ = gate("AM_Sap_up$i");
-    upOutGate_ = gate("AM_Sap_up$o");
-    downInGate_ = gate("AM_Sap_down$i");
-    downOutGate_ = gate("AM_Sap_down$o");
+    if (stage == inet::INITSTAGE_LOCAL) {
+        upInGate_ = gate("AM_Sap_up$i");
+        upOutGate_ = gate("AM_Sap_up$o");
+        downInGate_ = gate("AM_Sap_down$i");
+        downOutGate_ = gate("AM_Sap_down$o");
 
-    // parameters
-    txEntityModuleType_ = cModuleType::get(par("txEntityModuleType").stringValue());
-    rxEntityModuleType_ = cModuleType::get(par("rxEntityModuleType").stringValue());
+        // parameters
+        txEntityModuleType_ = cModuleType::get(par("txEntityModuleType").stringValue());
+        rxEntityModuleType_ = cModuleType::get(par("rxEntityModuleType").stringValue());
+    }
 }
 
 void LteRlcAm::handleMessage(cMessage *msg)

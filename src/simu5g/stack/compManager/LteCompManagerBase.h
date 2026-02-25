@@ -73,6 +73,8 @@ class LteCompManagerBase : public cSimpleModule
     // statistics
     static simsignal_t compReservedBlocksSignal_;
 
+  protected:
+    static CompNodeType parseNodeType(const char *nodeType);
     void runClientOperations();
     void runCoordinatorOperations();
     void handleX2Message(inet::Packet *pkt);
@@ -91,7 +93,8 @@ class LteCompManagerBase : public cSimpleModule
     void setUsableBands(UsableBands& usableBands);
 
   public:
-    void initialize() override;
+    void initialize(int stage) override;
+    int numInitStages() const override { return inet::NUM_INIT_STAGES; }
     void handleMessage(cMessage *msg) override;
 };
 

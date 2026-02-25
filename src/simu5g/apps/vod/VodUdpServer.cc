@@ -27,7 +27,7 @@ void VodUdpServer::initialize(int stage)
 {
     cSimpleModule::initialize(stage);
 
-    if (stage != INITSTAGE_APPLICATION_LAYER)
+    if (stage != inet::INITSTAGE_APPLICATION_LAYER)
         return;
     EV << "VoD Server initialize: stage " << stage << endl;
     serverPort = par("localPort");
@@ -35,7 +35,6 @@ void VodUdpServer::initialize(int stage)
     traceType = par("traceType").stringValue();
     fps = par("fps");
     TIME_SLOT = 1.0 / fps;
-    numStreams = 0;
 
     // set up Udp socket
     socket.setOutputGate(gate("socketOut"));
@@ -179,4 +178,3 @@ void VodUdpServer::handleSVCMessage(cMessage *msg)
 }
 
 } //namespace
-

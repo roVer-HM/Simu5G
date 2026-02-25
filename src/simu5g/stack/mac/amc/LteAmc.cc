@@ -70,7 +70,6 @@ void LteAmc::printParameters()
     EV << "RbAllocationType: " << allocationType_ << endl;
     EV << "FBHB capacity DL: " << fbhbCapacityDl_ << endl;
     EV << "FBHB capacity UL: " << fbhbCapacityUl_ << endl;
-    EV << "PmiWeight: " << pmiComputationWeight_ << endl;
     EV << "CqiWeight: " << cqiComputationWeight_ << endl;
     EV << "DL MCS scale: " << mcsScaleDl_ << endl;
     EV << "UL MCS scale: " << mcsScaleUl_ << endl;
@@ -158,12 +157,6 @@ void LteAmc::printTxParams(Direction dir, GHz carrierFrequency)
     }
 }
 
-void LteAmc::printMuMimoMatrix(const char *s)
-{
-    muMimoDlMatrix_.print(s);
-    muMimoUlMatrix_.print(s);
-    muMimoD2DMatrix_.print(s);
-}
 
 /********************
 * PUBLIC FUNCTIONS
@@ -221,11 +214,7 @@ LteAmc& LteAmc::operator=(const LteAmc& other)
     fbhbCapacityD2D_ = other.fbhbCapacityD2D_;
     lb_ = other.lb_;
     ub_ = other.ub_;
-    pmiComputationWeight_ = other.pmiComputationWeight_;
     cqiComputationWeight_ = other.cqiComputationWeight_;
-    muMimoDlMatrix_ = other.muMimoDlMatrix_;
-    muMimoUlMatrix_ = other.muMimoUlMatrix_;
-    muMimoD2DMatrix_ = other.muMimoD2DMatrix_;
 
     return *this;
 }
@@ -236,10 +225,13 @@ void LteAmc::initialize()
     nodeId_ = mac_->getMacNodeId();
     cellId_ = mac_->getMacCellId();
 
-    // Get deployed UEs maps from Binder
-    dlConnectedUe_ = binder_->getDeployedUes(nodeId_, DL);
-    ulConnectedUe_ = binder_->getDeployedUes(nodeId_, UL);
-    d2dConnectedUe_ = binder_->getDeployedUes(nodeId_, UL);
+    // Get deployed UEs lists from Binder and convert to map
+    ConnectedUesMap ueMap;
+    for (MacNodeId ueId : binder_->getDeployedUes(nodeId_))
+        ueMap[ueId] = true;
+    dlConnectedUe_ = ueMap;
+    ulConnectedUe_ = ueMap;
+    d2dConnectedUe_ = ueMap;
 
     // Get parameters from cellInfo
     numBands_ = cellInfo_->getPrimaryCarrierNumBands();
@@ -251,7 +243,6 @@ void LteAmc::initialize()
     fbhbCapacityDl_ = mac_->par("fbhbCapacityDl");
     fbhbCapacityUl_ = mac_->par("fbhbCapacityUl");
     fbhbCapacityD2D_ = mac_->par("fbhbCapacityD2D");
-    pmiComputationWeight_ = mac_->par("pmiWeight");
     cqiComputationWeight_ = mac_->par("cqiWeight");
     pilot_ = getAmcPilot(mac_->par("amcMode"));
     allocationType_ = getRbAllocationType(mac_->par("rbAllocationType").stringValue());
@@ -437,7 +428,7 @@ void LteAmc::pushFeedbackD2D(MacNodeId id, LteFeedback fb, MacNodeId peerId, GHz
     // DEBUG
     EV << "PeerId: " << peerId << ", Antenna: " << dasToA(antenna) << ", TxMode: " << txMode << ", Index: " << index << endl;
     EV << "RECEIVED" << endl;
-    fb.print(cellId_, id, D2D, "LteAmc::pushFeedbackD2D");
+    fb.print(NODEID_NONE, id, D2D, "LteAmc::pushFeedbackD2D");
 }
 
 const LteSummaryFeedback& LteAmc::getFeedback(MacNodeId id, Remote antenna, TxMode txMode, const Direction dir, GHz carrierFrequency)
@@ -481,24 +472,6 @@ const LteSummaryFeedback& LteAmc::getFeedbackD2D(MacNodeId id, Remote antenna, T
             return d2dFeedbackHistory_.at(carrierFrequency).at(NODEID_NONE).at(MACRO).at(0).at(txMode).get();
     }
     return d2dFeedbackHistory_.at(carrierFrequency).at(peerId).at(antenna).at(d2dNodeIndex_.at(id)).at(txMode).get();
-}
-
-/*******************************************
-*    Functions for MU-MIMO support       *
-*******************************************/
-
-MacNodeId LteAmc::computeMuMimoPairing(const MacNodeId nodeId, Direction dir)
-{
-    if (dir == DL) {
-        return muMimoDlMatrix_.getMuMimoPair(nodeId);
-    }
-    else if (dir == UL) {
-        return muMimoUlMatrix_.getMuMimoPair(nodeId);
-    }
-    else if (dir == D2D) {
-        return muMimoD2DMatrix_.getMuMimoPair(nodeId);
-    }
-    throw cRuntimeError("LteAmc::computeMuMimoPairing(): Unrecognized direction");
 }
 
 /********************************
@@ -590,9 +563,9 @@ unsigned int LteAmc::computeBitsOnNRbs(MacNodeId id, Band b, unsigned int blocks
         return 0;
 
     // DEBUG
-    EV << NOW << " LteAmc::computeBitsOnNRbs Node: " << id << "\n";
-    EV << NOW << " LteAmc::computeBitsOnNRbs Band: " << b << "\n";
-    EV << NOW << " LteAmc::computeBitsOnNRbs Direction: " << dirToA(dir) << "\n";
+    EV << NOW << " LteAmc::blocks2bits Node: " << id << "\n";
+    EV << NOW << " LteAmc::blocks2bits Band: " << b << "\n";
+    EV << NOW << " LteAmc::blocks2bits Direction: " << dirToA(dir) << "\n";
 
     // Acquiring current user scheduling information
     const UserTxParams& info = computeTxParams(id, dir, carrierFrequency);
@@ -604,7 +577,7 @@ unsigned int LteAmc::computeBitsOnNRbs(MacNodeId id, Band b, unsigned int blocks
     for (Codeword cw = 0; cw < codewords; ++cw) {
         // if CQI == 0 the UE is out of range, thus bits=0
         if (info.readCqiVector().at(cw) == 0) {
-            EV << NOW << " LteAmc::computeBitsOnNRbs - CQI equal to zero on cw " << cw << ", return no blocks available" << endl;
+            EV << NOW << " LteAmc::blocks2bits - CQI equal to zero on cw " << cw << ", return no blocks available" << endl;
             continue;
         }
 
@@ -613,19 +586,19 @@ unsigned int LteAmc::computeBitsOnNRbs(MacNodeId id, Band b, unsigned int blocks
         unsigned int i = (mod == _QPSK ? 0 : (mod == _16QAM ? 9 : (mod == _64QAM ? 15 : 0)));
 
         // DEBUG
-        EV << NOW << " LteAmc::computeBitsOnNRbs ---::[ Codeword = " << cw << "\n";
-        EV << NOW << " LteAmc::computeBitsOnNRbs Modulation: " << modToA(mod) << "\n";
-        EV << NOW << " LteAmc::computeBitsOnNRbs iTbs: " << iTbs << "\n";
-        EV << NOW << " LteAmc::computeBitsOnNRbs i: " << i << "\n";
-        EV << NOW << " LteAmc::computeBitsOnNRbs CQI: " << info.readCqiVector().at(cw) << "\n";
+        EV << NOW << " LteAmc::blocks2bits ---::[ Codeword = " << cw << "\n";
+        EV << NOW << " LteAmc::blocks2bits Modulation: " << modToA(mod) << "\n";
+        EV << NOW << " LteAmc::blocks2bits iTbs: " << iTbs << "\n";
+        EV << NOW << " LteAmc::blocks2bits i: " << i << "\n";
+        EV << NOW << " LteAmc::blocks2bits CQI: " << info.readCqiVector().at(cw) << "\n";
 
         const unsigned int *tbsVect = itbs2tbs(mod, info.readTxMode(), layers.at(cw), iTbs - i);
         bits += tbsVect[blocks - 1];
     }
 
     // DEBUG
-    EV << NOW << " LteAmc::computeBitsOnNRbs Resource Blocks: " << blocks << "\n";
-    EV << NOW << " LteAmc::computeBitsOnNRbs Available space: " << bits << "\n";
+    EV << NOW << " LteAmc::blocks2bits Resource Blocks: " << blocks << "\n";
+    EV << NOW << " LteAmc::blocks2bits Available space: " << bits << "\n";
 
     return bits;
 }
@@ -633,23 +606,23 @@ unsigned int LteAmc::computeBitsOnNRbs(MacNodeId id, Band b, unsigned int blocks
 unsigned int LteAmc::computeBitsOnNRbs(MacNodeId id, Band b, Codeword cw, unsigned int blocks, const Direction dir, GHz carrierFrequency)
 {
     if (blocks > 110)                          // Safety check to avoid segmentation fault
-        throw cRuntimeError("LteAmc::computeBitsOnNRbs(): Too many blocks");
+        throw cRuntimeError("LteAmc::blocks2bits(): Too many blocks");
 
     if (blocks == 0)
         return 0;
 
     // DEBUG
-    EV << NOW << " LteAmc::computeBitsOnNRbs Node: " << id << "\n";
-    EV << NOW << " LteAmc::computeBitsOnNRbs Band: " << b << "\n";
-    EV << NOW << " LteAmc::computeBitsOnNRbs Codeword: " << cw << "\n";
-    EV << NOW << " LteAmc::computeBitsOnNRbs Direction: " << dirToA(dir) << "\n";
+    EV << NOW << " LteAmc::blocks2bits Node: " << id << "\n";
+    EV << NOW << " LteAmc::blocks2bits Band: " << b << "\n";
+    EV << NOW << " LteAmc::blocks2bits Codeword: " << cw << "\n";
+    EV << NOW << " LteAmc::blocks2bits Direction: " << dirToA(dir) << "\n";
 
     // Acquiring current user scheduling information
     UserTxParams info = computeTxParams(id, dir, carrierFrequency);
 
     // if CQI == 0 the UE is out of range, thus return 0
     if (info.readCqiVector().at(cw) == 0) {
-        EV << NOW << " LteAmc::computeBitsOnNRbs - CQI equal to zero, return no blocks available" << endl;
+        EV << NOW << " LteAmc::blocks2bits - CQI equal to zero, return no blocks available" << endl;
         return 0;
     }
     unsigned char layers = info.getLayers().at(cw);
@@ -659,45 +632,45 @@ unsigned int LteAmc::computeBitsOnNRbs(MacNodeId id, Band b, Codeword cw, unsign
     unsigned int i = (mod == _QPSK ? 0 : (mod == _16QAM ? 9 : (mod == _64QAM ? 15 : 0)));
 
     // DEBUG
-    EV << NOW << " LteAmc::computeBitsOnNRbs Modulation: " << modToA(mod) << "\n";
-    EV << NOW << " LteAmc::computeBitsOnNRbs iTbs: " << iTbs << "\n";
-    EV << NOW << " LteAmc::computeBitsOnNRbs i: " << i << "\n";
+    EV << NOW << " LteAmc::blocks2bits Modulation: " << modToA(mod) << "\n";
+    EV << NOW << " LteAmc::blocks2bits iTbs: " << iTbs << "\n";
+    EV << NOW << " LteAmc::blocks2bits i: " << i << "\n";
 
     const unsigned int *tbsVect = itbs2tbs(mod, info.readTxMode(), layers, iTbs - i);
 
     // DEBUG
-    EV << NOW << " LteAmc::computeBitsOnNRbs Resource Blocks: " << blocks << "\n";
-    EV << NOW << " LteAmc::computeBitsOnNRbs Available space: " << tbsVect[blocks - 1] << "\n";
+    EV << NOW << " LteAmc::blocks2bits Resource Blocks: " << blocks << "\n";
+    EV << NOW << " LteAmc::blocks2bits Available space: " << tbsVect[blocks - 1] << "\n";
 
     return tbsVect[blocks - 1];
 }
 
 unsigned int LteAmc::computeBytesOnNRbs(MacNodeId id, Band b, unsigned int blocks, const Direction dir, GHz carrierFrequency)
 {
-    EV << NOW << " LteAmc::computeBytesOnNRbs Node " << id << ", Band " << b << ", direction " << dirToA(dir) << ", blocks " << blocks << "\n";
+    EV << NOW << " LteAmc::blocks2bytes Node " << id << ", Band " << b << ", direction " << dirToA(dir) << ", blocks " << blocks << "\n";
 
     unsigned int bits = computeBitsOnNRbs(id, b, blocks, dir, carrierFrequency);
     unsigned int bytes = bits / 8;
 
     // DEBUG
-    EV << NOW << " LteAmc::computeBytesOnNRbs Resource Blocks: " << blocks << "\n";
-    EV << NOW << " LteAmc::computeBytesOnNRbs Available space: " << bits << "\n";
-    EV << NOW << " LteAmc::computeBytesOnNRbs Available space: " << bytes << "\n";
+    EV << NOW << " LteAmc::blocks2bytes Resource Blocks: " << blocks << "\n";
+    EV << NOW << " LteAmc::blocks2bytes Available space: " << bits << "\n";
+    EV << NOW << " LteAmc::blocks2bytes Available space: " << bytes << "\n";
 
     return bytes;
 }
 
 unsigned int LteAmc::computeBytesOnNRbs(MacNodeId id, Band b, Codeword cw, unsigned int blocks, const Direction dir, GHz carrierFrequency)
 {
-    EV << NOW << " LteAmc::computeBytesOnNRbs Node " << id << ", Band " << b << ", Codeword " << cw << ", direction " << dirToA(dir) << ", blocks " << blocks << "\n";
+    EV << NOW << " LteAmc::blocks2bytes Node " << id << ", Band " << b << ", Codeword " << cw << ", direction " << dirToA(dir) << ", blocks " << blocks << "\n";
 
     unsigned int bits = computeBitsOnNRbs(id, b, cw, blocks, dir, carrierFrequency);
     unsigned int bytes = bits / 8;
 
     // DEBUG
-    EV << NOW << " LteAmc::computeBytesOnNRbs Resource Blocks: " << blocks << "\n";
-    EV << NOW << " LteAmc::computeBytesOnNRbs Available space: " << bits << "\n";
-    EV << NOW << " LteAmc::computeBytesOnNRbs Available space: " << bytes << "\n";
+    EV << NOW << " LteAmc::blocks2bytes Resource Blocks: " << blocks << "\n";
+    EV << NOW << " LteAmc::blocks2bytes Available space: " << bits << "\n";
+    EV << NOW << " LteAmc::blocks2bytes Available space: " << bytes << "\n";
 
     return bytes;
 }
@@ -711,8 +684,8 @@ unsigned int LteAmc::computeBytesOnNRbs_MB(MacNodeId id, Band b, unsigned int bl
 
     // DEBUG
     EV << NOW << " LteAmc::computeBytesOnNRbs_MB Resource Blocks: " << blocks << "\n";
-    EV << NOW << " LteAmc::computeBytesOnNRbs_MB Available space: " << bits << " bits\n";
-    EV << NOW << " LteAmc::computeBytesOnNRbs_MB Available space: " << bytes << " bytes\n";
+    EV << NOW << " LteAmc::computeBytesOnNRbs_MB Available space: " << bits << "\n";
+    EV << NOW << " LteAmc::computeBytesOnNRbs_MB Available space: " << bytes << "\n";
 
     return bytes;
 }
@@ -979,7 +952,7 @@ Cqi LteAmc::readWbCqi(const CqiVector& cqi)
     // consider the cqi of each band
     unsigned int bands = cqi.size();
     for (Band b = 0; b < bands; ++b) {
-        EV << "LteAmc::readWbCqi - Cqi " << cqi.at(b) << " on band " << (int)b << endl;
+        EV << "LteAmc::getWbCqi - Cqi " << cqi.at(b) << " on band " << (int)b << endl;
 
         cqiCounter += cqi.at(b);
         cqiMin = cqiMin < cqi.at(b) ? cqiMin : cqi.at(b);
@@ -1028,71 +1001,6 @@ Cqi LteAmc::readWbCqi(const CqiVector& cqi)
 std::vector<Cqi> LteAmc::readMultiBandCqi(MacNodeId id, const Direction dir, GHz carrierFrequency)
 {
     return pilot_->getMultiBandCqi(id, dir, carrierFrequency);
-}
-
-void LteAmc::writePmiWeight(const double weight)
-{
-    // set the PMI weight
-    pmiComputationWeight_ = weight;
-}
-
-Pmi LteAmc::readWbPmi(const PmiVector& pmi)
-{
-    // during the process, consider
-    // - the pmi value which will be returned
-    Pmi pmiRet = NOPMI;
-    // - a counter to obtain the mean
-    Pmi pmiCounter = NOPMI;
-    // - the mean value
-    Pmi pmiMean = NOPMI;
-    // - the min value
-    Pmi pmiMin = NOPMI;
-    // - the max value
-    Pmi pmiMax = NOPMI;
-
-    // consider the pmi of each band
-    unsigned int bands = pmi.size();
-    for (Band b = 0; b < bands; ++b) {
-        pmiCounter += pmi.at(b);
-        pmiMin = pmiMin < pmi.at(b) ? pmiMin : pmi.at(b);
-        pmiMax = pmiMax > pmi.at(b) ? pmiMax : pmi.at(b);
-    }
-
-    // when casting a double to an unsigned int value, consider the closest one
-
-    // is the module lower than the half of the divisor? ceil, otherwise floor
-    pmiMean = (double)(pmiCounter % bands) > (double)bands / 2.0 ? pmiCounter / bands + 1 : pmiCounter / bands;
-
-    // the 0.0 weight is used in order to obtain the mean
-    if (pmiComputationWeight_ == 0.0)
-        pmiRet = pmiMean;
-    // the -1.0 weight is used in order to obtain the min
-    else if (pmiComputationWeight_ == -1.0)
-        pmiRet = pmiMin;
-    // the 1.0 weight is used in order to obtain the max
-    else if (pmiComputationWeight_ == 1.0)
-        pmiRet = pmiMax;
-    // the following weight is used in order to obtain a value between the min and the mean
-    else if (-1.0 < pmiComputationWeight_ && pmiComputationWeight_ < 0.0) {
-        pmiRet = pmiMin;
-        // ceil or floor depending on decimal part (casting to unsigned int results in a ceiling)
-        double ret = (pmiComputationWeight_ + 1.0) * ((double)pmiMean - (double)pmiMin);
-        pmiRet += ret - ((unsigned int)ret) > 0.5 ? (unsigned int)ret + 1 : (unsigned int)ret;
-    }
-    // the following weight is used in order to obtain a value between the min and the max
-    else if (0.0 < pmiComputationWeight_ && pmiComputationWeight_ < 1.0) {
-        pmiRet = pmiMean;
-        // ceil or floor depending on decimal part (casting to unsigned int results in a ceiling)
-        double ret = (pmiComputationWeight_) * ((double)pmiMax - (double)pmiMean);
-        pmiRet += ret - ((unsigned int)ret) > 0.5 ? (unsigned int)ret + 1 : (unsigned int)ret;
-    }
-    else {
-        throw cRuntimeError("LteAmc::readWbPmi(): Unknown weight %f", pmiComputationWeight_);
-    }
-
-    EV << "LteAmc::readWbPmi - Pmi " << pmiRet << " evaluated\n";
-
-    return pmiRet;
 }
 
 /****************************
@@ -1327,7 +1235,7 @@ void LteAmc::testUe(MacNodeId nodeId, Direction dir)
         numTxModes = UL_NUM_TXMODE;
     }
     else {
-        throw cRuntimeError("LteAmc::testUe(): Unrecognized direction");
+        throw cRuntimeError("LteAmc::attachUser(): Unrecognized direction");
     }
 
     unsigned int nodeIndex = (*nodeIndexMap).at(nodeId);
@@ -1398,4 +1306,3 @@ void LteAmc::testUe(MacNodeId nodeId, Direction dir)
 void LteAmc::setPilotMode(PilotComputationModes mode) { pilot_->setMode(mode); }
 
 } //namespace
-

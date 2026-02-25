@@ -9,28 +9,20 @@
 // and cannot be removed from it.
 //
 
-#include "PacketFlowObserverBase.h"
-
+#include <sstream>
 #include <inet/common/ModuleAccess.h>
-
 #include "simu5g/stack/mac/LteMacBase.h"
 #include "simu5g/stack/pdcp/LtePdcp.h"
 #include "simu5g/stack/rlc/LteRlcDefs.h"
-#include "simu5g/stack/rlc/packet/LteRlcDataPdu.h"
-
+#include "simu5g/stack/rlc/packet/LteRlcPdu_m.h"
 #include "simu5g/common/LteControlInfo.h"
-
-#include <sstream>
+#include "PacketFlowObserverBase.h"
 
 namespace simu5g {
 
-//Define_Module(PacketFlowObserverBase);
-
-
-
 void PacketFlowObserverBase::initialize(int stage)
 {
-    if (stage == 1) {
+    if (stage == INITSTAGE_SIMU5G_POSTLOCAL) {
         LteMacBase *mac = getModuleFromPar<LteMacBase>(par("macModule"), this);
         nodeType_ = mac->getNodeType();
         harqProcesses_ = (nodeType_ == UE) ? UE_TX_HARQ_PROCESSES : ENB_TX_HARQ_PROCESSES;
@@ -43,9 +35,4 @@ void PacketFlowObserverBase::resetDiscardCounter()
     pktDiscardCounterTotal_ = { 0, 0 };
 }
 
-void PacketFlowObserverBase::finish()
-{
-}
-
 } //namespace
-

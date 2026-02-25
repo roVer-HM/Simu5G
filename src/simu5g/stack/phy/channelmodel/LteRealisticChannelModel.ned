@@ -30,7 +30,7 @@ simple LteRealisticChannelModel extends LteChannelModel
         bool shadowing = default(true);
 
         // Pathloss scenario from ITU -->
-        string scenario @enum(INDOOR_HOTSPOT,URBAN_MICROCELL,URBAN_MACROCELL,RURAL_MACROCELL,SUBURBAN_MACROCELL,UNKNOW_SCENARIO) = default("URBAN_MACROCELL");
+        string scenario @enum(INDOOR_HOTSPOT,URBAN_MICROCELL,URBAN_MACROCELL,RURAL_MACROCELL,SUBURBAN_MACROCELL,UNKNOWN_SCENARIO) = default("URBAN_MACROCELL");
 
         // eNodeB height -->
         double nodebHeight @unit(m) = default(25m);
@@ -50,11 +50,6 @@ simple LteRealisticChannelModel extends LteChannelModel
         double targetBler = default(0.01);
         // HARQ reduction -->
         double harqReduction = default(0.2);
-
-        // Rank indicator tracefile -->
-        double lambdaMinTh = default(0.02);
-        double lambdaMaxTh = default(0.2);
-        double lambdaRatioTh = default(20);
 
         // Antenna Gain of UE -->
         double antennaGainUe @unit(dBi) = default(0dBi);

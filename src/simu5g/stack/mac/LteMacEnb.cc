@@ -31,9 +31,11 @@
 #include "simu5g/stack/mac/packet/LteRac_m.h"
 #include "simu5g/stack/mac/packet/LteMacSduRequest.h"
 #include "simu5g/stack/phy/LtePhyBase.h"
-#include "simu5g/stack/rlc/packet/LteRlcDataPdu.h"
-#include "simu5g/stack/rlc/am/packet/LteRlcAmPdu_m.h"
+#include "simu5g/stack/rlc/packet/LteRlcPdu_m.h"
+#include "simu5g/stack/rlc/packet/LteRlcPdu_m.h"
 #include "simu5g/stack/packetFlowObserver/PacketFlowObserverBase.h"
+#include "simu5g/stack/rlc/packet/LteRlcNewDataTag_m.h"
+#include "simu5g/stack/rlc/packet/PdcpTrackingTag_m.h"
 #include "simu5g/stack/rlc/um/LteRlcUm.h"
 #include "simu5g/stack/pdcp/NrPdcpEnb.h"
 
@@ -50,7 +52,7 @@ using namespace omnetpp;
 LteMacEnb::LteMacEnb() :
     LteMacBase()
 {
-    nodeType_ = ENODEB;
+    nodeType_ = NODEB;
 }
 
 LteMacEnb::~LteMacEnb()
@@ -75,8 +77,8 @@ CellInfo *LteMacEnb::getCellInfo()
 
 int LteMacEnb::getNumAntennas()
 {
-    // Get number of antennas: +1 is for MACRO
-    return cellInfo_->getNumRus() + 1;
+    // 0 remote antenna units, +1 is for MACRO
+    return 1;
 }
 
 SchedDiscipline LteMacEnb::getSchedDiscipline(Direction dir)
@@ -129,20 +131,27 @@ void LteMacEnb::initialize(int stage)
 
         cellInfo_.reference(this, "cellInfoModule", true);
 
-        // Get number of antennas
-        numAntennas_ = getNumAntennas();
-
         eNodeBCount = par("eNodeBCount");
-        WATCH(numAntennas_);
         WATCH_MAP(bsrbuf_);
     }
-    else if (stage == inet::INITSTAGE_PHYSICAL_ENVIRONMENT) {
+    else if (stage == INITSTAGE_SIMU5G_REGISTRATIONS) {
+        // Insert EnbInfo in the Binder
+        EnbInfo *info = new EnbInfo();
+        info->id = nodeId_;            // local MAC ID
+        info->isNr = isNr_;            // eNB or gNB
+        info->type = MACRO_ENB;        // eNB Type
+        info->init = false;            // flag for PHY initialization
+        info->eNodeB = getContainingNode(this);  // reference to the eNodeB module
+        binder_->addEnbInfo(info);
+    }
+    else if (stage == INITSTAGE_SIMU5G_AMC_SETUP) {
         // Create and initialize AMC module
         std::string amcType = par("amcType").stdstringValue();
+        int numAntennas = getNumAntennas();
         if (amcType == "NrAmc")
-            amc_ = new NrAmc(this, binder_, cellInfo_, numAntennas_);
+            amc_ = new NrAmc(this, binder_, cellInfo_, numAntennas);
         else if (amcType == "LteAmc")
-            amc_ = new LteAmc(this, binder_, cellInfo_, numAntennas_);
+            amc_ = new LteAmc(this, binder_, cellInfo_, numAntennas);
         else
             throw cRuntimeError("The amcType '%s' not recognized", amcType.c_str());
 
@@ -161,22 +170,8 @@ void LteMacEnb::initialize(int stage)
             amc_->setPilotMode(ROBUST_CQI);
         else
             throw cRuntimeError("LteMacEnb::initialize - Unknown Pilot Mode %s \n", modeString.c_str());
-
-        cModule *hostModule = getContainingNode(this);
-
-        // Insert EnbInfo in the Binder
-        EnbInfo *info = new EnbInfo();
-        info->id = nodeId_;            // local MAC ID
-        info->nodeType = nodeType_;    // eNB or gNB
-        info->type = MACRO_ENB;        // eNB Type
-        info->init = false;            // flag for PHY initialization
-        info->eNodeB = hostModule;  // reference to the eNodeB module
-        binder_->addEnbInfo(info);
-
-        // register  <id, module> in the binder
-        binder_->registerModule(nodeId_, hostModule);
     }
-    else if (stage == inet::INITSTAGE_LINK_LAYER) {
+    else if (stage == INITSTAGE_SIMU5G_MAC_SCHEDULER_CREATION) {
         // Create and initialize MAC Downlink scheduler
         if (enbSchedulerDl_ == nullptr) {
             enbSchedulerDl_ = new LteSchedulerEnbDl();
@@ -200,7 +195,7 @@ void LteMacEnb::initialize(int stage)
             ++i;
         }
     }
-    else if (stage == inet::INITSTAGE_LAST) {
+    else if (stage == INITSTAGE_SIMU5G_TTI_SETUP) {
         // Start TTI tick
         // the period is equal to the minimum period according to the numerologies used by the carriers in this node
         ttiTick_ = new cMessage("ttiTick_");
@@ -270,7 +265,7 @@ void LteMacEnb::macSduRequest()
                                     " (queue size: %d, SDU request requires: %d)", queueSize_, macSduRequest->getSduSize());
             }
             auto tag = pkt->addTag<FlowControlInfo>();
-            *tag = connDescOut_[destCid].flowInfo;
+            *tag = connDescOut_[destCid].flowInfo.toFlowControlInfo();
             sendUpperPackets(pkt);
         }
     }
@@ -561,7 +556,15 @@ void LteMacEnb::macPduMake(MacCid cid)
                 ASSERT(pkt != nullptr);
 
                 drop(pkt);
+
+                // Remove PdcpTrackingTag as it's no longer needed below MAC layer
+                // TODO It won't succeed if tag is on a packet *inside* an lteRlcFragment,
+                // but removing those would be very complicated. Tag will be removed anyway
+                // on the receiver side.
+                pkt->removeTagIfPresent<PdcpTrackingTag>();
+
                 auto macPkt = macPacket->removeAtFront<LteMacPdu>();
+
                 macPkt->pushSdu(pkt);
                 macPacket->insertAtFront(macPkt);
                 sduPerCid--;
@@ -625,10 +628,18 @@ void LteMacEnb::macPduUnmake(cPacket *cpkt)
 
     while (macPdu->hasSdu()) {
         // Extract and send SDU
-        cPacket *upPkt = macPdu->popSdu();
+        Packet *upPkt = macPdu->popSdu();
         take(upPkt);
 
-        // TODO: upPkt->info()
+        // fill FlowControlInfo from stored descriptors
+        auto flowInfo = upPkt->getTag<FlowControlInfo>();
+        MacNodeId senderId = userInfo->getSourceId();
+        LogicalCid lcid = flowInfo->getLcid();
+        MacCid cid = MacCid(senderId, lcid);
+        ASSERT(connDescIn_.find(cid) != connDescIn_.end());
+        upPkt->removeTag<FlowControlInfo>();
+        *upPkt->addTag<FlowControlInfo>() = connDescIn_[cid].toFlowControlInfo();
+
         EV << "LteMacBase: PDU Unmaker extracted SDU" << endl;
         sendUpperPackets(upPkt);
     }
@@ -663,21 +674,20 @@ bool LteMacEnb::bufferizePacket(cPacket *cpkt)
 
     // obtain the cid from the packet information
     MacCid cid = ctrlInfoToMacCid(lteInfo.get());
+    ASSERT(connDescOut_.find(cid) != connDescOut_.end());
 
-    // check if queues exist, create them if they don't
-    if (connDescOut_.find(cid) == connDescOut_.end())
-        createOutgoingConnection(cid, *lteInfo);
     OutgoingConnectionInfo& connInfo = connDescOut_.at(cid);
     LteMacQueue *queue = connInfo.queue;
     LteMacBuffer *vqueue = connInfo.buffer;
 
     // this packet is used to signal the arrival of new data in the RLC buffers
-    if (checkIfHeaderType<LteRlcPduNewData>(pkt)) {
+    if (pkt->findTag<LteRlcNewDataTag>()) {
         // update the virtual buffer for this connection
         // build the virtual packet corresponding to this incoming packet
-        pkt->popAtFront<LteRlcPduNewData>();
-        auto rlcSdu = pkt->peekAtFront<LteRlcSdu>();
-        PacketInfo vpkt(rlcSdu->getLengthMainPacket(), pkt->getTimestamp());
+        // remove the tag since it's just a notification
+        pkt->removeTag<LteRlcNewDataTag>();
+        auto pdcpTag = pkt->getTag<PdcpTrackingTag>();
+        PacketInfo vpkt(pdcpTag->getOriginalPacketLength(), pkt->getTimestamp());
         vqueue->pushBack(vpkt);
 
         delete pkt;
@@ -719,7 +729,7 @@ void LteMacEnb::handleUpperMessage(cPacket *pktAux)
     auto lteInfo = pkt->getTag<FlowControlInfo>();
     MacCid cid = MacCid(lteInfo->getDestId(), lteInfo->getLcid());
 
-    bool isLteRlcPduNewData = checkIfHeaderType<LteRlcPduNewData>(pkt);
+    bool isLteRlcPduNewData = (pkt->findTag<LteRlcNewDataTag>() != nullptr);
 
     bool packetIsBuffered = bufferizePacket(pkt);  // will buffer (or destroy if the queue is full)
 
@@ -853,27 +863,27 @@ void LteMacEnb::flushHarqBuffers()
 void LteMacEnb::macHandleFeedbackPkt(cPacket *pktAux)
 {
     auto pkt = check_and_cast<Packet *>(pktAux);
-    auto fb = pkt->peekAtFront<LteFeedbackPkt>();
+    auto fbPk = pkt->peekAtFront<LteFeedbackPkt>();
 
     //LteFeedbackPkt* fb = check_and_cast<LteFeedbackPkt*>(pkt);
-    LteFeedbackDoubleVector fbMapDl = fb->getLteFeedbackDoubleVectorDl();
-    LteFeedbackDoubleVector fbMapUl = fb->getLteFeedbackDoubleVectorUl();
+    LteFeedbackDoubleVector fbMapDl = fbPk->getLteFeedbackDoubleVectorDl();
+    LteFeedbackDoubleVector fbMapUl = fbPk->getLteFeedbackDoubleVectorUl();
     //get Source Node Id<
-    MacNodeId id = fb->getSourceNodeId();
+    MacNodeId srcNodeId = fbPk->getSourceNodeId();
 
     auto lteInfo = pkt->getTag<UserControlInfo>();
 
-    for (auto& it : fbMapDl) {
-        for (auto& jt : it) {
-            if (!jt.isEmptyFeedback()) {
-                amc_->pushFeedback(id, DL, jt, lteInfo->getCarrierFrequency());
+    for (auto& fbv : fbMapDl) {
+        for (auto& fb : fbv) {
+            if (!fb.isEmptyFeedback()) {
+                amc_->pushFeedback(srcNodeId, DL, fb, lteInfo->getCarrierFrequency());
             }
         }
     }
-    for (auto& it : fbMapUl) {
-        for (auto& jt : it) {
-            if (!jt.isEmptyFeedback())
-                amc_->pushFeedback(id, UL, jt, lteInfo->getCarrierFrequency());
+    for (auto& fbv : fbMapUl) {
+        for (auto& fb : fbv) {
+            if (!fb.isEmptyFeedback())
+                amc_->pushFeedback(srcNodeId, UL, fb, lteInfo->getCarrierFrequency());
         }
     }
     delete pkt;

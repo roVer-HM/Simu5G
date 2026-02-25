@@ -17,13 +17,13 @@ Define_Module(NrMacGnb);
 
 NrMacGnb::NrMacGnb() : LteMacEnbD2D()
 {
-    nodeType_ = GNODEB;
+    isNr_ = true;
 }
 
 
 void NrMacGnb::initialize(int stage)
 {
-    if (stage == inet::INITSTAGE_LINK_LAYER) {
+    if (stage == INITSTAGE_SIMU5G_MAC_SCHEDULER_CREATION) {
         // Create and initialize NR MAC Uplink scheduler
         if (enbSchedulerUl_ == nullptr) {
             enbSchedulerUl_ = new NrSchedulerGnbUl();

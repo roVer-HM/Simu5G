@@ -37,7 +37,7 @@ class LtePdcpUeD2D : public LtePdcpUe
 
     void handleMessage(cMessage *msg) override;
 
-    MacNodeId getDestId(inet::Ptr<FlowControlInfo> lteInfo) override;
+    MacNodeId getNextHopNodeId(const Ipv4Address& destAddr, bool useNR, MacNodeId sourceId) override;
 
     // additional getDirection method determining if D2D communication is available to a specific destination
     Direction getDirection(MacNodeId destId)

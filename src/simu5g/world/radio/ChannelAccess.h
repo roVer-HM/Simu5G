@@ -38,7 +38,7 @@ class ChannelAccess : public cSimpleModule, public cListener
     IChannelControl::RadioRef myRadioRef = nullptr;  // Identifies this radio in the ChannelControl module
     opp_component_ptr<cModule> hostModule;    // the host that contains this radio model
     inet::Coord radioPos;  // the physical position of the radio (derived from display string or from mobility models)
-    bool positionUpdateArrived;
+    bool positionUpdateArrived = false;
 
   public:
     ~ChannelAccess() override;
@@ -70,10 +70,9 @@ class ChannelAccess : public cSimpleModule, public cListener
 
     /** Register with ChannelControl and subscribe to hostPos*/
     void initialize(int stage) override;
-    int numInitStages() const override { return inet::INITSTAGE_PHYSICAL_LAYER + 1; }
+    int numInitStages() const override { return inet::NUM_INIT_STAGES; }
 };
 
 } //namespace
 
 #endif
-

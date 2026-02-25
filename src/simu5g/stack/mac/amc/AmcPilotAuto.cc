@@ -36,9 +36,6 @@ const UserTxParams& AmcPilotAuto::computeTxParams(MacNodeId id, const Direction 
      */
     const LteSummaryFeedback& sfb = amc_->getFeedback(id, MACRO, txMode, dir, carrierFrequency);
 
-    if (TxMode(txMode) == MULTI_USER) // Initialize MuMiMoMatrix
-        amc_->muMimoMatrixInit(dir, id);
-
     sfb.print(NODEID_NONE, id, dir, txMode, "AmcPilotAuto::computeTxParams");
 
     // get a vector of  CQI over first CW
@@ -180,7 +177,6 @@ const UserTxParams& AmcPilotAuto::computeTxParams(MacNodeId id, const Direction 
     info.writeTxMode(txMode);
     info.writeRank(sfb.getRi());
     info.writeCqi(std::vector<Cqi>(1, chosenCqi));
-    info.writePmi(sfb.getPmi(chosenBand));
     info.writeBands(bandSet);
     RemoteSet antennas;
     antennas.insert(MACRO);

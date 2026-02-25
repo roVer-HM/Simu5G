@@ -67,7 +67,7 @@ class PacketFlowObserverBase : public cSimpleModule
 
     DiscardedPkts pktDiscardCounterTotal_; // total discarded packets counter of the node
 
-    RanNodeType nodeType_; // UE or ENODEB (used for set MACROS)
+    RanNodeType nodeType_; // UE or NODEB (used for set MACROS)
     short int harqProcesses_; // number of HARQ processes
 
     std::string pfmType;
@@ -75,9 +75,8 @@ class PacketFlowObserverBase : public cSimpleModule
     int headerCompressedSize_;
 
   protected:
-    int numInitStages() const override { return 2; }
+    int numInitStages() const override { return inet::NUM_INIT_STAGES; }
     void initialize(int stage) override;
-    void finish() override;
 
     // Return true if a data structure for this LCID is present
     virtual bool hasLcid(LogicalCid lcid) = 0;

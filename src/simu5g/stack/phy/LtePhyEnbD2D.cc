@@ -12,7 +12,7 @@
 #include "simu5g/stack/phy/LtePhyEnbD2D.h"
 #include "simu5g/stack/phy/packet/LteFeedbackPkt.h"
 #include "simu5g/common/LteCommon.h"
-#include "simu5g/stack/phy/das/DasFilter.h"
+#include "simu5g/common/LteControlInfoTags_m.h"
 
 namespace simu5g {
 
@@ -25,7 +25,7 @@ using namespace inet;
 void LtePhyEnbD2D::initialize(int stage)
 {
     LtePhyEnb::initialize(stage);
-    if (stage == INITSTAGE_LOCAL)
+    if (stage == inet::INITSTAGE_LOCAL)
         enableD2DCqiReporting_ = par("enableD2DCqiReporting");
 }
 
@@ -55,41 +55,19 @@ void LtePhyEnbD2D::requestFeedback(UserControlInfo *lteinfo, LteAirFrame *frame,
     // Feedback computation
     fb.clear();
     // Get number of RU
-    int nRus = cellInfo_->getNumRus();
+    int nRus = 0;
     TxMode txmode = req.txMode;
     FeedbackType type = req.type;
     RbAllocationType rbtype = req.rbAllocationType;
-    std::map<Remote, int> antennaCws = cellInfo_->getAntennaCws();
+    std::map<Remote, int> antennaCws; // DAS functionality removed
+    antennaCws[MACRO] = 1; // Default single antenna
     unsigned int numPreferredBand = cellInfo_->getNumPreferredBands();
     Direction dir = UL;
     while (dir != UNKNOWN_DIRECTION) {
         // For each RU the computation feedback function is called
-        if (req.genType == IDEAL) {
-            fb = lteFeedbackComputation_->computeFeedback(type, rbtype, txmode,
-                    antennaCws, numPreferredBand, IDEAL, nRus, snr,
-                    lteinfo->getSourceId());
-        }
-        else if (req.genType == REAL) {
-            fb.resize(das_->getReportingSet().size());
-            for (const auto& reporting : das_->getReportingSet())
-            {
-                fb[reporting].resize((int)txmode);
-                fb[reporting][(int)txmode] =
-                    lteFeedbackComputation_->computeFeedback(reporting, txmode,
-                            type, rbtype, antennaCws[reporting], numPreferredBand,
-                            REAL, nRus, snr, lteinfo->getSourceId());
-            }
-        }
-        // The reports are computed only for the antennas in the reporting set
-        else if (req.genType == DAS_AWARE) {
-            fb.resize(das_->getReportingSet().size());
-            for (const auto& reporting : das_->getReportingSet())
-            {
-                fb[reporting] = lteFeedbackComputation_->computeFeedback(reporting, type,
-                        rbtype, txmode, antennaCws[reporting], numPreferredBand,
-                        DAS_AWARE, nRus, snr, lteinfo->getSourceId());
-            }
-        }
+        fb = lteFeedbackComputation_->computeFeedback(type, rbtype, txmode,
+                antennaCws, numPreferredBand, nRus, snr,
+                lteinfo->getSourceId());
         if (dir == UL) {
             header->setLteFeedbackDoubleVectorUl(fb);
             // Prepare parameters for next loop iteration - in order to compute SNR in DL
@@ -124,7 +102,7 @@ void LtePhyEnbD2D::requestFeedback(UserControlInfo *lteinfo, LteAirFrame *frame,
 
                         // Compute the feedback for this link
                         fb = lteFeedbackComputation_->computeFeedback(type, rbtype, txmode,
-                                antennaCws, numPreferredBand, IDEAL, nRus, snr,
+                                antennaCws, numPreferredBand, nRus, snr,
                                 lteinfo->getSourceId());
 
                         header->setLteFeedbackDoubleVectorD2D(peerId, fb);
@@ -135,8 +113,7 @@ void LtePhyEnbD2D::requestFeedback(UserControlInfo *lteinfo, LteAirFrame *frame,
         }
     }
     EV << "LtePhyEn::requestFeedback : Feedback Generated for nodeId: "
-       << nodeId_ << " with generator type "
-       << fbGeneratorTypeToA(req.genType) << " Fb size: " << fb.size()
+       << nodeId_ << " Fb size: " << fb.size()
        << " Carrier: " << lteinfo->getCarrierFrequency() << endl;
 
     pktAux->insertAtFront(header);
@@ -144,8 +121,8 @@ void LtePhyEnbD2D::requestFeedback(UserControlInfo *lteinfo, LteAirFrame *frame,
 
 void LtePhyEnbD2D::handleAirFrame(cMessage *msg)
 {
-    UserControlInfo *lteInfo = check_and_cast<UserControlInfo *>(msg->removeControlInfo());
     LteAirFrame *frame = static_cast<LteAirFrame *>(msg);
+    UserControlInfo *lteInfo = new UserControlInfo(frame->getAdditionalInfo());
 
     EV << "LtePhyEnbD2D::handleAirFrame - received new LteAirFrame with ID " << frame->getId() << " from channel" << endl;
 
@@ -178,7 +155,7 @@ void LtePhyEnbD2D::handleAirFrame(cMessage *msg)
         return;
     }
 
-    if (lteInfo->getMulticastGroupId() != -1 && !(binder_->isInMulticastGroup(nodeId_, lteInfo->getMulticastGroupId()))) {
+    if (lteInfo->getPacketMulticastGroupId() != NODEID_NONE && !(binder_->isInMulticastGroup(nodeId_, lteInfo->getPacketMulticastGroupId()))) {
         EV << "Frame is for a multicast group, but we do not belong to that group. Delete the frame." << endl;
         EV << "Packet Type: " << phyFrameTypeToA((LtePhyFrameType)lteInfo->getFrameType()) << endl;
         EV << "Frame MacNodeId: " << lteInfo->getDestId() << endl;
@@ -217,31 +194,8 @@ void LtePhyEnbD2D::handleAirFrame(cMessage *msg)
     if (handleControlPkt(lteInfo, frame))
         return; // If frame contains a control pkt no further action is needed
 
-    bool result = true;
-    RemoteSet r = lteInfo->getUserTxParams()->readAntennaSet();
-    if (r.size() > 1) {
-        // Use DAS
-        // Message from UE
-        for (auto it : r) {
-            EV << "LtePhy: Receiving Packet from antenna " << it << "\n";
-
-            /*
-             * On eNodeB set the current position
-             * to the receiving DAS antenna
-             */
-            // Move set start
-            cc->setRadioPosition(myRadioRef, das_->getAntennaCoord(it));
-
-            RemoteUnitPhyData data;
-            data.txPower = lteInfo->getTxPower();
-            data.m = getRadioPosition();
-            frame->addRemoteUnitPhyDataVector(data);
-        }
-        result = channelModel->isErrorDas(frame, lteInfo);
-    }
-    else {
-        result = channelModel->isError(frame, lteInfo);
-    }
+    // DAS removed - single antenna only
+    bool result = channelModel->isReceptionSuccessful(frame, lteInfo);
     if (result)
         numAirFrameReceived_++;
     else
@@ -256,10 +210,11 @@ void LtePhyEnbD2D::handleAirFrame(cMessage *msg)
     delete frame;
 
     // Attach the decider result to the packet as control info
-    lteInfo->setDeciderResult(result);
     auto lteInfoTag = pkt->addTagIfAbsent<UserControlInfo>();
     *lteInfoTag = *lteInfo;
     delete lteInfo;
+
+    pkt->addTagIfAbsent<PhyReceptionInd>()->setDeciderResult(result);
 
     // Send decapsulated message along with result control info to upperGateOut_
     send(pkt, upperGateOut_);
@@ -269,4 +224,3 @@ void LtePhyEnbD2D::handleAirFrame(cMessage *msg)
 }
 
 } //namespace
-

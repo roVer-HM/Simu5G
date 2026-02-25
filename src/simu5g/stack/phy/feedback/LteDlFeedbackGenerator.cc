@@ -29,7 +29,7 @@ using namespace inet;
 void LteDlFeedbackGenerator::initialize(int stage)
 {
     EV << "DlFeedbackGenerator stage: " << stage << endl;
-    if (stage == INITSTAGE_LOCAL) {
+    if (stage == inet::INITSTAGE_LOCAL) {
         // Read NED parameters
         binder_.reference(this, "binderModule", true);
         fbPeriod_ = (simtime_t)(int(par("fbPeriod")) * TTI);// TTI -> seconds
@@ -38,24 +38,15 @@ void LteDlFeedbackGenerator::initialize(int stage)
             throw cRuntimeError("Feedback Period MUST be greater than Feedback Delay");
         }
         fbType_ = getFeedbackType(par("feedbackType").stringValue());
-        rbAllocationType_ = getRbAllocationType(
-                par("rbAllocationType").stringValue());
+        rbAllocationType_ = getRbAllocationType(par("rbAllocationType").stringValue());
         usePeriodic_ = par("usePeriodic");
         currentTxMode_ = aToTxMode(par("initialTxMode"));
 
-        generatorType_ = getFeedbackGeneratorType(
-                par("feedbackGeneratorType").stringValue());
-
         cModule *networkNode = getContainingNode(this);
-        // TODO: find a more elegant way
-        if (strcmp(getFullName(), "nrDlFbGen") == 0)
-            masterId_ = MacNodeId(networkNode->par("nrMasterId").intValue());
-        else
-            masterId_ = MacNodeId(networkNode->par("masterId").intValue());
-        nodeId_ = MacNodeId(networkNode->par("macNodeId").intValue());
+        bool isNr = strcmp(getFullName(), "nrDlFbGen") == 0;
+        nodeId_ = MacNodeId(networkNode->par(isNr ? "nrMacNodeId" : "macNodeId").intValue()); //TODO or
 
         // Initialize timers
-
         tPeriodicSensing_ = new TTimer(this);
         tPeriodicSensing_->setTimerId(PERIODIC_SENSING);
 
@@ -72,7 +63,10 @@ void LteDlFeedbackGenerator::initialize(int stage)
         WATCH(usePeriodic_);
         WATCH(currentTxMode_);
     }
-    else if (stage == INITSTAGE_LINK_LAYER) {
+    else if (stage == INITSTAGE_SIMU5G_BINDER_ACCESS) {
+        masterId_ = binder_->getServingNode(nodeId_);
+    }
+    else if (stage == INITSTAGE_SIMU5G_PHYSICAL_LAYER) {
         EV << "DLFeedbackGenerator Stage " << stage << " nodeid: " << nodeId_
            << " init" << endl;
 
@@ -128,7 +122,6 @@ void LteDlFeedbackGenerator::initCellInfo()
     EV << "DLFeedbackGenerator - nodeid: " << nodeId_ << " cellInfo taken" << endl;
 
     if (cellInfo_ != nullptr) {
-        antennaCws_ = cellInfo_->getAntennaCws();
         numBands_ = cellInfo_->getPrimaryCarrierNumBands();
         numPreferredBands_ = cellInfo_->getNumPreferredBands();
     }
@@ -212,7 +205,6 @@ void LteDlFeedbackGenerator::sendFeedback(LteFeedbackDoubleVector fb,
     FeedbackRequest feedbackReq;
     if (feedbackComputationPisa_) {
         feedbackReq.request = true;
-        feedbackReq.genType = generatorType_;
         feedbackReq.type = fbType_;
         feedbackReq.txMode = currentTxMode_;
         feedbackReq.rbAllocationType = rbAllocationType_;

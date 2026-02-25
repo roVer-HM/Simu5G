@@ -13,8 +13,8 @@
 
 #include "simu5g/stack/phy/LtePhyEnb.h"
 #include "simu5g/stack/phy/packet/LteFeedbackPkt.h"
-#include "simu5g/stack/phy/das/DasFilter.h"
 #include "simu5g/common/LteCommon.h"
+#include "simu5g/common/LteControlInfoTags_m.h"
 
 namespace simu5g {
 
@@ -28,12 +28,6 @@ LtePhyEnb::~LtePhyEnb()
 {
     cancelAndDelete(bdcStarter_);
     delete lteFeedbackComputation_;
-    delete das_;
-}
-
-DasFilter *LtePhyEnb::getDasFilter()
-{
-    return das_;
 }
 
 void LtePhyEnb::initialize(int stage)
@@ -46,17 +40,17 @@ void LtePhyEnb::initialize(int stage)
         emit(macNodeIdSignal_, num(nodeId_));
         EV << "Local MacNodeId: " << nodeId_ << endl;
 
-        cellInfo_ = binder_->getCellInfoByNodeId(nodeId_);
-        if (cellInfo_ != nullptr) {
-            cellInfo_->channelUpdate(nodeId_, intuniform(1, binder_->phyPisaData.maxChannel2()));
-            das_ = new DasFilter(this, binder_, cellInfo_->getRemoteAntennaSet(), 0);
-        }
         isNr_ = (std::string(getContainingNicModule(this)->getComponentType()->getName()) == "NrNicEnb");
 
-        nodeType_ = (isNr_) ? GNODEB : ENODEB;
+        randomChannelIndex_ = intuniform(1, binder_->phyPisaData.maxChannel2()); // NOTE: moving this to the next stage (where it is used will change random number stream and CHANGE FINGERPRINTS!
+
+        nodeType_ = NODEB;
         WATCH(nodeType_);
     }
-    else if (stage == 1) {
+    else if (stage == INITSTAGE_SIMU5G_BINDER_ACCESS) {
+        cellInfo_ = binder_->getCellInfoByNodeId(nodeId_);
+    }
+    else if (stage == INITSTAGE_SIMU5G_PHYSICAL_LAYER) {
         initializeFeedbackComputation();
 
         //check eNb type and set TX power
@@ -82,8 +76,6 @@ void LtePhyEnb::initialize(int stage)
             bdcStarter_ = new cMessage("bdcStarter");
             scheduleAt(NOW, bdcStarter_);
         }
-    }
-    else if (stage == INITSTAGE_LINK_LAYER) {
     }
 }
 
@@ -132,12 +124,8 @@ bool LtePhyEnb::handleControlPkt(UserControlInfo *lteinfo, LteAirFrame *frame)
 
 void LtePhyEnb::handleAirFrame(cMessage *msg)
 {
-    UserControlInfo *lteInfo = check_and_cast<UserControlInfo *>(msg->removeControlInfo());
-    if (lteInfo == nullptr) {
-        return;
-    }
-
     LteAirFrame *frame = static_cast<LteAirFrame *>(msg);
+    UserControlInfo *lteInfo = new UserControlInfo(frame->getAdditionalInfo());
 
     EV << "LtePhy: received new LteAirFrame with ID " << frame->getId() << " from channel" << endl;
 
@@ -188,30 +176,8 @@ void LtePhyEnb::handleAirFrame(cMessage *msg)
     if (handleControlPkt(lteInfo, frame))
         return; // If frame contains a control packet no further action is needed
 
-    bool result = true;
-    RemoteSet r = lteInfo->getUserTxParams()->readAntennaSet();
-    if (r.size() > 1) {
-        // Use DAS
-        // Message from ue
-        for (auto it : r) {
-            EV << "LtePhy: Receiving Packet from antenna " << it << "\n";
-
-            /*
-             * On eNodeB set the current position
-             * to the receiving das antenna
-             */
-            cc->setRadioPosition(myRadioRef, das_->getAntennaCoord(it));
-
-            RemoteUnitPhyData data;
-            data.txPower = lteInfo->getTxPower();
-            data.m = getRadioPosition();
-            frame->addRemoteUnitPhyDataVector(data);
-        }
-        result = channelModel->isErrorDas(frame, lteInfo);
-    }
-    else {
-        result = channelModel->isError(frame, lteInfo);
-    }
+    // DAS removed - single antenna only
+    bool result = channelModel->isReceptionSuccessful(frame, lteInfo);
     if (result)
         numAirFrameReceived_++;
     else
@@ -226,9 +192,10 @@ void LtePhyEnb::handleAirFrame(cMessage *msg)
     delete frame;
 
     // attach the decider result to the packet as control info
-    lteInfo->setDeciderResult(result);
     *(pkt->addTagIfAbsent<UserControlInfo>()) = *lteInfo;
     delete lteInfo;
+
+    pkt->addTagIfAbsent<PhyReceptionInd>()->setDeciderResult(result);
 
     // send decapsulated message along with result control info to upperGateOut_
     send(pkt, upperGateOut_);
@@ -262,44 +229,22 @@ void LtePhyEnb::requestFeedback(UserControlInfo *lteinfo, LteAirFrame *frame, Pa
     FeedbackRequest req = lteinfo->getFeedbackReq();
     //Feedback computation
     fb.clear();
-    //get number of RU
-    int nRus = cellInfo_->getNumRus();
+    // DAS removed - single antenna (remote 0) only
+    int nRus = 0;
     TxMode txmode = req.txMode;
     FeedbackType type = req.type;
     RbAllocationType rbtype = req.rbAllocationType;
-    std::map<Remote, int> antennaCws = cellInfo_->getAntennaCws();
+    std::map<Remote, int> antennaCws;
+    antennaCws[MACRO] = 1;
     unsigned int numPreferredBand = cellInfo_->getNumPreferredBands();
 
     for (Direction dir = UL; dir != UNKNOWN_DIRECTION;
          dir = ((dir == UL) ? DL : UNKNOWN_DIRECTION))
     {
-        //for each RU is called the computation feedback function
-        if (req.genType == IDEAL) {
-            fb = lteFeedbackComputation_->computeFeedback(type, rbtype, txmode,
-                    antennaCws, numPreferredBand, IDEAL, nRus, snr,
-                    lteinfo->getSourceId());
-        }
-        else if (req.genType == REAL) {
-            fb.resize(das_->getReportingSet().size());
-            for (const auto &remote : das_->getReportingSet())
-            {
-                fb[remote].resize((int)txmode);
-                fb[remote][(int)txmode] =
-                    lteFeedbackComputation_->computeFeedback(remote, txmode,
-                            type, rbtype, antennaCws[remote], numPreferredBand,
-                            REAL, nRus, snr, lteinfo->getSourceId());
-            }
-        }
-        // the reports are computed only for the antenna in the reporting set
-        else if (req.genType == DAS_AWARE) {
-            fb.resize(das_->getReportingSet().size());
-            for (const auto &remote : das_->getReportingSet())
-            {
-                fb[remote] = lteFeedbackComputation_->computeFeedback(remote, type,
-                        rbtype, txmode, antennaCws[remote], numPreferredBand,
-                        DAS_AWARE, nRus, snr, lteinfo->getSourceId());
-            }
-        }
+        // MIMO/DAS support removed. We only support MACRO and treat it as IDEAL for now.
+        fb = lteFeedbackComputation_->computeFeedback(type, rbtype, txmode,
+                antennaCws, numPreferredBand, nRus, snr,
+                lteinfo->getSourceId());
 
         if (dir == UL) {
             header->setLteFeedbackDoubleVectorUl(fb);
@@ -317,8 +262,7 @@ void LtePhyEnb::requestFeedback(UserControlInfo *lteinfo, LteAirFrame *frame, Pa
             header->setLteFeedbackDoubleVectorDl(fb);
     }
     EV << "LtePhyEnb::requestFeedback : Pisa Feedback Generated for nodeId: "
-       << nodeId_ << " with generator type "
-       << fbGeneratorTypeToA(req.genType) << " Feedback size: " << fb.size()
+       << nodeId_ << " Feedback size: " << fb.size()
        << " Carrier: " << lteinfo->getCarrierFrequency() << endl;
 
     pktAux->insertAtFront(header);
@@ -379,29 +323,14 @@ LteFeedbackComputation *LtePhyEnb::getFeedbackComputationFromName(std::string na
     if (name == "REAL") {
         // default value
         double targetBler = 0.1;
-        double lambdaMinTh = 0.02;
-        double lambdaMaxTh = 0.2;
-        double lambdaRatioTh = 20;
         it = params.find("targetBler");
         if (it != params.end()) {
             targetBler = params["targetBler"].doubleValue();
         }
-        it = params.find("lambdaMinTh");
-        if (it != params.end()) {
-            lambdaMinTh = params["lambdaMinTh"].doubleValue();
-        }
-        it = params.find("lambdaMaxTh");
-        if (it != params.end()) {
-            lambdaMaxTh = params["lambdaMaxTh"].doubleValue();
-        }
-        it = params.find("lambdaRatioTh");
-        if (it != params.end()) {
-            lambdaRatioTh = params["lambdaRatioTh"].doubleValue();
-        }
         LteFeedbackComputation *fbcomp = new LteFeedbackComputationRealistic(
                 binder_,
-                targetBler, cellInfo_->getLambda(), lambdaMinTh, lambdaMaxTh,
-                lambdaRatioTh, cellInfo_->getNumBands());
+                targetBler,
+                cellInfo_->getNumBands());
         return fbcomp;
     }
     else
@@ -413,16 +342,12 @@ void LtePhyEnb::initializeFeedbackComputation()
     const char *name = "REAL";
 
     double targetBler = par("targetBler");
-    double lambdaMinTh = par("lambdaMinTh");
-    double lambdaMaxTh = par("lambdaMaxTh");
-    double lambdaRatioTh = par("lambdaRatioTh");
 
     // compute feedback for the primary carrier only
     // TODO add support for feedback computation for all carriers
     lteFeedbackComputation_ = new LteFeedbackComputationRealistic(
             binder_,
-            targetBler, cellInfo_->getLambda(), lambdaMinTh, lambdaMaxTh,
-            lambdaRatioTh, cellInfo_->getPrimaryCarrierNumBands());
+            targetBler, cellInfo_->getPrimaryCarrierNumBands());
 
     EV << "Feedback Computation \"" << name << "\" loaded." << endl;
 }

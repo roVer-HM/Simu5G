@@ -87,12 +87,13 @@ class NrRxPdcpEntity : public LteRxPdcpEntity
     double timeout_;
 
     // handler for PDCP SDU
-    void handlePdcpSdu(Packet *pdcpSdu) override;
+    void handlePdcpSdu(Packet *pdcpSdu, unsigned int sequenceNumber) override;
 
   public:
 
 
-    void initialize() override;
+    void initialize(int stage) override;
+    int numInitStages() const override { return inet::NUM_INIT_STAGES; }
 
     void handleMessage(cMessage *msg) override;
 

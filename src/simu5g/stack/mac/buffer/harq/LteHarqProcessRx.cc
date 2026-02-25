@@ -13,6 +13,7 @@
 #include "simu5g/stack/mac/LteMacBase.h"
 #include "simu5g/stack/mac/LteMacEnb.h"
 #include "simu5g/common/LteControlInfo.h"
+#include "simu5g/common/LteControlInfoTags_m.h"
 #include "simu5g/common/binder/Binder.h"
 #include "simu5g/stack/mac/packet/LteHarqFeedback_m.h"
 #include "simu5g/stack/mac/packet/LteMacPdu.h"
@@ -55,7 +56,7 @@ void LteHarqProcessRx::insertPdu(Codeword cw, Packet *pkt)
 
     // store new received PDU
     pdu_.at(cw) = pkt;
-    result_.at(cw) = lteInfo->getDeciderResult();
+    result_.at(cw) = pkt->getTag<PhyReceptionInd>()->getDeciderResult();
     status_.at(cw) = RXHARQ_PDU_EVALUATING;
     rxTime_.at(cw) = NOW;
 
@@ -118,7 +119,7 @@ Packet *LteHarqProcessRx::createFeedback(Codeword cw)
             resetCodeword(cw);
         }
         else {
-            if (macOwner_->getNodeType() == ENODEB || macOwner_->getNodeType() == GNODEB) {
+            if (macOwner_->getNodeType() == NODEB) {
                 // signal the MAC the need for retransmission
                 check_and_cast<LteMacEnb *>(macOwner_.get())->signalProcessForRtx(pduInfo->getSourceId(), pduInfo->getCarrierFrequency(), (Direction)pduInfo->getDirection());
             }

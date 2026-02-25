@@ -18,7 +18,9 @@
 #include <inet/transportlayer/udp/UdpHeader_m.h>
 #include "simu5g/stack/packetFlowObserver/PacketFlowObserverBase.h"
 #include "simu5g/stack/pdcp/packet/LteRohcPdu_m.h"
+#include "simu5g/stack/pdcp/packet/LtePdcpPdu_m.h"
 #include <inet/common/ProtocolTag_m.h>
+#include "simu5g/common/LteControlInfoTags_m.h"
 
 // We require a minimum length of 1 Byte for each header even in compressed state
 // (transport, network and ROHC header, i.e. minimum is 3 Bytes)
@@ -29,13 +31,14 @@ namespace simu5g {
 
 Define_Module(LteTxPdcpEntity);
 
-void LteTxPdcpEntity::initialize()
-{
-    pdcp_ = check_and_cast<LtePdcpBase *>(getParentModule());
+void LteTxPdcpEntity::initialize(int stage) {
+    if (stage == inet::INITSTAGE_LOCAL) {
+        pdcp_ = check_and_cast<LtePdcpBase *>(getParentModule());
 
-    headerCompressedSize_ = B(pdcp_->par("headerCompressedSize"));
-    if (headerCompressedSize_ != LTE_PDCP_HEADER_COMPRESSION_DISABLED && headerCompressedSize_ < MIN_COMPRESSED_HEADER_SIZE)
-        throw cRuntimeError("Size of compressed header must not be less than %" PRId64 "B.", MIN_COMPRESSED_HEADER_SIZE.get());
+        headerCompressedSize_ = B(pdcp_->par("headerCompressedSize"));
+        if (headerCompressedSize_ != LTE_PDCP_HEADER_COMPRESSION_DISABLED && headerCompressedSize_ < MIN_COMPRESSED_HEADER_SIZE)
+            throw cRuntimeError("Size of compressed header must not be less than %" PRId64 "B.", MIN_COMPRESSED_HEADER_SIZE.get());
+    }
 }
 
 void LteTxPdcpEntity::handlePacketFromUpperLayer(Packet *pkt)
@@ -46,11 +49,9 @@ void LteTxPdcpEntity::handlePacketFromUpperLayer(Packet *pkt)
     // perform PDCP operations
     compressHeader(pkt); // header compression
 
-    // Write information into the ControlInfo object
-    lteInfo->setSequenceNumber(sno_++); // set sequence number for this PDCP SDU.
-
     // PDCP Packet creation
     auto pdcpHeader = makeShared<LtePdcpHeader>();
+    pdcpHeader->setSequenceNumber(sno_++); // set sequence number in PDCP header
 
     unsigned int headerLength;
     switch (lteInfo->getRlcType()) {
@@ -124,7 +125,6 @@ void LteTxPdcpEntity::deliverPdcpPdu(Packet *pdcpPkt)
 {
     pdcp_->sendToLowerLayer(pdcpPkt);
 }
-
 
 } //namespace
 

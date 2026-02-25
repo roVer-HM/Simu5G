@@ -11,11 +11,12 @@
 
 #include <assert.h>
 #include "simu5g/stack/phy/LtePhyUe.h"
-
+#include "simu5g/stack/phy/NrPhyUe.h"
 #include "simu5g/stack/ip2nic/Ip2Nic.h"
 #include "simu5g/stack/mac/LteMacEnb.h"
 #include "simu5g/stack/phy/packet/LteFeedbackPkt.h"
 #include "simu5g/stack/phy/feedback/LteDlFeedbackGenerator.h"
+#include "simu5g/common/LteControlInfoTags_m.h"
 
 namespace simu5g {
 
@@ -30,7 +31,6 @@ LtePhyUe::~LtePhyUe()
 {
     cancelAndDelete(handoverStarter_);
     cancelAndDelete(handoverTrigger_);
-    delete das_;
 }
 
 void LtePhyUe::initialize(int stage)
@@ -52,12 +52,6 @@ void LtePhyUe::initialize(int stage)
 
         currentMasterRssi_ = -999.0;
         candidateMasterRssi_ = -999.0;
-        hysteresisTh_ = 0;
-        hysteresisFactor_ = 10;
-        handoverDelta_ = 0.00001;
-
-        dasRssiThreshold_ = 1.0e-5;
-        das_ = new DasFilter(this, binder_, nullptr, dasRssiThreshold_);
 
         hasCollector = par("hasCollector");
 
@@ -67,17 +61,13 @@ void LtePhyUe::initialize(int stage)
         WATCH(nodeType_);
         WATCH(masterId_);
         WATCH(candidateMasterId_);
-        WATCH(dasRssiThreshold_);
         WATCH(currentMasterRssi_);
         WATCH(candidateMasterRssi_);
         WATCH(hysteresisTh_);
         WATCH(hysteresisFactor_);
         WATCH(handoverDelta_);
-    }
-    else if (stage == inet::INITSTAGE_PHYSICAL_ENVIRONMENT) {
-        txPower_ = ueTxPower_;
 
-        lastFeedback_ = 0;
+        txPower_ = ueTxPower_;
 
         handoverStarter_ = new cMessage("handoverStarter");
 
@@ -89,73 +79,21 @@ void LtePhyUe::initialize(int stage)
         ip2nic_.reference(this, "ip2nicModule", true);
         fbGen_.reference(this, "feedbackGeneratorModule", true);
 
+        // setting isNr_ was originally done in the NrPhyUe subclass, but it is needed here
+        isNr_ = dynamic_cast<NrPhyUe*>(this) && strcmp(getFullName(), "nrPhy") == 0;
+
         // get local id
-        if (isNr_)
-            nodeId_ = MacNodeId(hostModule->par("nrMacNodeId").intValue());
-        else
-            nodeId_ = MacNodeId(hostModule->par("macNodeId").intValue());
-        emit(macNodeIdSignal_, num(nodeId_));
+        nodeId_ = MacNodeId(hostModule->par(isNr_ ? "nrMacNodeId" : "macNodeId").intValue());
         EV << "Local MacNodeId: " << nodeId_ << endl;
     }
-    else if (stage == inet::INITSTAGE_PHYSICAL_LAYER) {
+    else if (stage == INITSTAGE_SIMU5G_PHYSICAL_LAYER) {
         // get serving cell from configuration
-        // TODO find a more elegant way
-        if (isNr_)
-            masterId_ = MacNodeId(hostModule->par("nrMasterId").intValue());
-        else
-            masterId_ = MacNodeId(hostModule->par("masterId").intValue());
+        masterId_ = binder_->getServingNode(nodeId_);
         candidateMasterId_ = masterId_;
 
         // find the best candidate master cell
         if (dynamicCellAssociation_) {
-            // this is a fictitious frame that needs to compute the SINR
-            LteAirFrame *frame = new LteAirFrame("cellSelectionFrame");
-            UserControlInfo *cInfo = new UserControlInfo();
-
-            // get the list of all eNodeBs in the network
-            for (const auto& enbInfo : binder_->getEnbList()) {
-                // the NR phy layer only checks signal from gNBs
-                if (isNr_ && enbInfo->nodeType != GNODEB)
-                    continue;
-
-                // the LTE phy layer only checks signal from eNBs
-                if (!isNr_ && enbInfo->nodeType != ENODEB)
-                    continue;
-
-                MacNodeId cellId = enbInfo->id;
-                LtePhyBase *cellPhy = check_and_cast<LtePhyBase *>(enbInfo->eNodeB->getSubmodule("cellularNic")->getSubmodule("phy"));
-                double cellTxPower = cellPhy->getTxPwr();
-                Coord cellPos = cellPhy->getCoord();
-
-                // check whether the BS supports the carrier frequency used by the UE
-                GHz ueCarrierFrequency = primaryChannelModel_->getCarrierFrequency();
-                LteChannelModel *cellChannelModel = cellPhy->getChannelModel(ueCarrierFrequency);
-                if (cellChannelModel == nullptr)
-                    continue;
-
-                // build a control info
-                cInfo->setSourceId(cellId);
-                cInfo->setTxPower(cellTxPower);
-                cInfo->setCoord(cellPos);
-                cInfo->setFrameType(BROADCASTPKT);
-                cInfo->setDirection(DL);
-
-                // get RSSI from the BS
-                double rssi = 0;
-                std::vector<double> rssiV = primaryChannelModel_->getRSRP(frame, cInfo);
-                for (auto value : rssiV)
-                    rssi += value;
-                rssi /= rssiV.size();   // compute the mean over all RBs
-
-                EV << "LtePhyUe::initialize - RSSI from cell " << cellId << ": " << rssi << " dB (current candidate cell " << candidateMasterId_ << ": " << candidateMasterRssi_ << " dB)" << endl;
-
-                if (rssi > candidateMasterRssi_) {
-                    candidateMasterId_ = cellId;
-                    candidateMasterRssi_ = rssi;
-                }
-            }
-            delete cInfo;
-            delete frame;
+            findCandidateEnb(candidateMasterId_, candidateMasterRssi_);
 
             // binder calls
             // if dynamicCellAssociation selected a different master
@@ -164,18 +102,12 @@ void LtePhyUe::initialize(int stage)
                 binder_->registerServingNode(candidateMasterId_, nodeId_);
             }
             masterId_ = candidateMasterId_;
-            // set serving cell
-            if (isNr_)
-                hostModule->par("nrMasterId").setIntValue(num(masterId_));
-            else
-                hostModule->par("masterId").setIntValue(num(masterId_));
             currentMasterRssi_ = candidateMasterRssi_;
             updateHysteresisTh(candidateMasterRssi_);
         }
 
         EV << "LtePhyUe::initialize - Attaching to eNodeB " << masterId_ << endl;
 
-        das_->setMasterRuSet(masterId_);
         emit(servingCellSignal_, (long)masterId_);
 
         if (masterId_ == NODEID_NONE)
@@ -185,19 +117,60 @@ void LtePhyUe::initialize(int stage)
             masterMobility_ = check_and_cast<IMobility *>(masterModule->getSubmodule("mobility"));
         }
     }
-    else if (stage == inet::INITSTAGE_NETWORK_CONFIGURATION) {
-        // get cellInfo at this stage because the next hop of the node is registered in the Ip2Nic module at the INITSTAGE_NETWORK_LAYER
-        if (masterId_ != NODEID_NONE) {
+    else if (stage == INITSTAGE_SIMU5G_CELLINFO_CHANNELUPDATE) { //TODO being fwd, eliminate stage
+        // get cellInfo at this stage because the next hop of the node is registered in the Ip2Nic module at the INITSTAGE_SIMU5G_NETWORK_LAYER
+        if (masterId_ != NODEID_NONE)
             cellInfo_ = binder_->getCellInfoByNodeId(nodeId_);
-            int index = intuniform(0, binder_->phyPisaData.maxChannel() - 1);
-            if (cellInfo_ != nullptr) {
-                cellInfo_->lambdaInit(nodeId_, index);
-                cellInfo_->channelUpdate(nodeId_, intuniform(1, binder_->phyPisaData.maxChannel2()));
-            }
-        }
         else
             cellInfo_ = nullptr;
     }
+}
+
+void LtePhyUe::findCandidateEnb(MacNodeId& outCandidateMasterId, double& outCandidateMasterRssi)
+{
+    // this is a fictitious frame that needs to compute the SINR
+    LteAirFrame *frame = new LteAirFrame("cellSelectionFrame");
+    UserControlInfo *cInfo = new UserControlInfo();
+    outCandidateMasterId = NODEID_NONE;
+
+    // get the list of all eNodeBs in the network
+    for (const auto &enbInfo : binder_->getEnbList()) {
+        // the NR phy layer only checks signal from gNBs, and
+        // the LTE phy layer only checks signal from eNBs
+        if (isNr_ != enbInfo->isNr)
+            continue;
+
+        MacNodeId cellId = enbInfo->id;
+        LtePhyBase *cellPhy = check_and_cast<LtePhyBase*>(
+                enbInfo->eNodeB->getSubmodule("cellularNic")->getSubmodule("phy"));
+        double cellTxPower = cellPhy->getTxPwr();
+        Coord cellPos = cellPhy->getCoord();
+        // check whether the BS supports the carrier frequency used by the UE
+        GHz ueCarrierFrequency = primaryChannelModel_->getCarrierFrequency();
+        LteChannelModel *cellChannelModel = cellPhy->getChannelModel(ueCarrierFrequency);
+        if (cellChannelModel == nullptr)
+            continue;
+
+        // build a control info
+        cInfo->setSourceId(cellId);
+        cInfo->setTxPower(cellTxPower);
+        cInfo->setCoord(cellPos);
+        cInfo->setFrameType(BROADCASTPKT);
+        cInfo->setDirection(DL);
+        // get RSSI from the BS
+        double rssi = 0;
+        std::vector<double> rssiV = primaryChannelModel_->getRSRP(frame, cInfo);
+        for (auto value : rssiV)
+            rssi += value;
+        rssi /= rssiV.size(); // compute the mean over all RBs
+        EV << "LtePhyUe::findCandicateEnb - RSSI from cell " << cellId << ": " << rssi << " dB (current candidate cell " << outCandidateMasterId << ": " << outCandidateMasterRssi << " dB)" << endl;
+        if (outCandidateMasterId == NODEID_NONE || rssi > outCandidateMasterRssi) {
+            outCandidateMasterId = cellId;
+            outCandidateMasterRssi = rssi;
+        }
+    }
+    delete cInfo;
+    delete frame;
 }
 
 void LtePhyUe::handleSelfMessage(cMessage *msg)
@@ -215,33 +188,19 @@ void LtePhyUe::handoverHandler(LteAirFrame *frame, UserControlInfo *lteInfo)
 {
     lteInfo->setDestId(nodeId_);
     if (!enableHandover_) {
-        // Even if handover is not enabled, this call is necessary
-        // to allow Reporting Set computation.
-        if (getNodeTypeById(lteInfo->getSourceId()) == ENODEB && lteInfo->getSourceId() == masterId_) {
-            // Broadcast message from my master enb
-            das_->receiveBroadcast(frame, lteInfo);
-        }
-
         delete frame;
         delete lteInfo;
         return;
     }
 
     frame->setControlInfo(lteInfo);
-    double rssi;
+    double rssi = 0;
 
-    if (getNodeTypeById(lteInfo->getSourceId()) == ENODEB && lteInfo->getSourceId() == masterId_) {
-        // Broadcast message from my master enb
-        rssi = das_->receiveBroadcast(frame, lteInfo);
-    }
-    else {
-        // Broadcast message from not-master enb
-        rssi = 0;
-        std::vector<double> rssiV = primaryChannelModel_->getSINR(frame, lteInfo);
-        for (auto value : rssiV)
-            rssi += value;
-        rssi /= rssiV.size();
-    }
+    // Compute RSSI from broadcast message (DAS removed - single antenna)
+    std::vector<double> rssiV = primaryChannelModel_->getSINR(frame, lteInfo);
+    for (auto value : rssiV)
+        rssi += value;
+    rssi /= rssiV.size();
 
     EV << "UE " << nodeId_ << " broadcast frame from " << lteInfo->getSourceId() << " with RSSI: " << rssi << " at " << simTime() << endl;
 
@@ -378,7 +337,6 @@ void LtePhyUe::doHandover()
 
     if (candidateMasterId_ != NODEID_NONE) {
         binder_->registerServingNode(candidateMasterId_, nodeId_);
-        das_->setMasterRuSet(candidateMasterId_);
     }
     binder_->updateUeInfoCellId(nodeId_, candidateMasterId_);
 
@@ -394,12 +352,6 @@ void LtePhyUe::doHandover()
     currentMasterRssi_ = candidateMasterRssi_;
     hysteresisTh_ = updateHysteresisTh(currentMasterRssi_);
 
-    // update NED parameter
-    if (isNr_)
-        hostModule->par("nrMasterId").setIntValue(num(masterId_));
-    else
-        hostModule->par("masterId").setIntValue(num(masterId_));
-
     // update reference to master node's mobility module
     if (masterId_ == NODEID_NONE)
         masterMobility_ = nullptr;
@@ -409,21 +361,13 @@ void LtePhyUe::doHandover()
     }
 
     // update cellInfo
-    if (masterId_ != NODEID_NONE)
+    if (oldMaster != NODEID_NONE)
         cellInfo_->detachUser(nodeId_);
 
-    if (candidateMasterId_ != NODEID_NONE) {
-        CellInfo *oldCellInfo = cellInfo_;
-        LteMacEnb *newMacEnb = check_and_cast<LteMacEnb *>(binder_->getMacByNodeId(candidateMasterId_));
-        CellInfo *newCellInfo = newMacEnb->getCellInfo();
-        newCellInfo->attachUser(nodeId_);
-        cellInfo_ = newCellInfo;
-        if (oldCellInfo == nullptr) {
-            // first time the UE is attached to someone
-            int index = intuniform(0, binder_->phyPisaData.maxChannel() - 1);
-            cellInfo_->lambdaInit(nodeId_, index);
-            cellInfo_->channelUpdate(nodeId_, intuniform(1, binder_->phyPisaData.maxChannel2()));
-        }
+    if (masterId_ != NODEID_NONE) {
+        LteMacEnb *newMacEnb = check_and_cast<LteMacEnb *>(binder_->getMacByNodeId(masterId_));
+        cellInfo_ = newMacEnb->getCellInfo();
+        cellInfo_->attachUser(nodeId_);
     }
 
     // update DL feedback generator
@@ -451,10 +395,10 @@ void LtePhyUe::doHandover()
 // TODO: ***reorganize*** method
 void LtePhyUe::handleAirFrame(cMessage *msg)
 {
-    UserControlInfo *lteInfo = dynamic_cast<UserControlInfo *>(msg->removeControlInfo());
+    LteAirFrame *frame = static_cast<LteAirFrame *>(msg);
+    UserControlInfo *lteInfo = new UserControlInfo(frame->getAdditionalInfo());
 
     connectedNodeId_ = masterId_;
-    LteAirFrame *frame = check_and_cast<LteAirFrame *>(msg);
     EV << "LtePhy: received new LteAirFrame with ID " << frame->getId() << " from channel" << endl;
 
     if (!binder_->nodeExists(lteInfo->getSourceId())) {
@@ -526,30 +470,8 @@ void LtePhyUe::handleAirFrame(cMessage *msg)
         emit(averageCqiDlSignal_, cqi);
         recordCqi(cqi, DL);
     }
-    // apply decider to received packet
-    bool result = true;
-    RemoteSet r = lteInfo->getUserTxParams()->readAntennaSet();
-    if (r.size() > 1) {
-        // DAS
-        for (auto it : r) {
-            EV << "LtePhy: Receiving Packet from antenna " << it << "\n";
-
-            /*
-             * On UE set the sender position
-             * and tx power to the sender das antenna
-             */
-
-            RemoteUnitPhyData data;
-            data.txPower = lteInfo->getTxPower();
-            data.m = getRadioPosition();
-            frame->addRemoteUnitPhyDataVector(data);
-        }
-        // apply analog models For DAS
-        result = channelModel->isErrorDas(frame, lteInfo);
-    }
-    else {
-        result = channelModel->isError(frame, lteInfo);
-    }
+    // apply decider to received packet (DAS removed - single antenna only)
+    bool result = channelModel->isReceptionSuccessful(frame, lteInfo);
 
     // update statistics
     if (result)
@@ -566,9 +488,10 @@ void LtePhyUe::handleAirFrame(cMessage *msg)
     delete frame;
 
     // attach the decider result to the packet as control info
-    lteInfo->setDeciderResult(result);
     *(pkt->addTagIfAbsent<UserControlInfo>()) = *lteInfo;
     delete lteInfo;
+
+    pkt->addTagIfAbsent<PhyReceptionInd>()->setDeciderResult(result);
 
     // send decapsulated message along with result control info to upperGateOut_
     send(pkt, upperGateOut_);
@@ -663,11 +586,6 @@ void LtePhyUe::deleteOldBuffers(MacNodeId masterId)
     pdcp_->deleteEntities(masterId_);
 }
 
-DasFilter *LtePhyUe::getDasFilter()
-{
-    return das_;
-}
-
 void LtePhyUe::sendFeedback(LteFeedbackDoubleVector fbDl, LteFeedbackDoubleVector fbUl, FeedbackRequest req)
 {
     Enter_Method("SendFeedback");
@@ -687,7 +605,6 @@ void LtePhyUe::sendFeedback(LteFeedbackDoubleVector fbDl, LteFeedbackDoubleVecto
     uinfo->setSourceId(nodeId_);
     uinfo->setDestId(masterId_);
     uinfo->setFrameType(FEEDBACKPKT);
-    uinfo->setIsCorruptible(false);
     // create LteAirFrame and encapsulate a feedback packet
     LteAirFrame *frame = new LteAirFrame("feedback_pkt");
     frame->encapsulate(check_and_cast<cPacket *>(pkt));

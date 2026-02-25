@@ -25,7 +25,6 @@ void NrPhyUe::initialize(int stage)
 {
     LtePhyUeD2D::initialize(stage);
     if (stage == inet::INITSTAGE_LOCAL) {
-        isNr_ = (strcmp(getFullName(), "nrPhy") == 0);
         otherPhy_.reference(this, "otherPhyModule", true);
     }
 }
@@ -33,10 +32,10 @@ void NrPhyUe::initialize(int stage)
 // TODO: ***reorganize*** method
 void NrPhyUe::handleAirFrame(cMessage *msg)
 {
-    UserControlInfo *lteInfo = check_and_cast<UserControlInfo *>(msg->removeControlInfo());
+    LteAirFrame *frame = static_cast<LteAirFrame *>(msg);
+    UserControlInfo *lteInfo = new UserControlInfo(frame->getAdditionalInfo());
 
     connectedNodeId_ = masterId_;
-    LteAirFrame *frame = check_and_cast<LteAirFrame *>(msg);
     EV << "NrPhyUe: received new LteAirFrame with ID " << frame->getId() << " from channel" << endl;
 
     MacNodeId sourceId = lteInfo->getSourceId();
@@ -91,7 +90,7 @@ void NrPhyUe::handleAirFrame(cMessage *msg)
     }
 
     // Check if the frame is for us ( MacNodeId matches or - if this is a multicast communication - enrolled in multicast group)
-    if (lteInfo->getDestId() != nodeId_ && !(binder_->isInMulticastGroup(nodeId_, lteInfo->getMulticastGroupId()))) {
+    if (lteInfo->getDestId() != nodeId_ && !(binder_->isInMulticastGroup(nodeId_, lteInfo->getPacketMulticastGroupId()))) {
         EV << "ERROR: Frame is not for us. Delete it." << endl;
         EV << "Packet Type: " << phyFrameTypeToA((LtePhyFrameType)lteInfo->getFrameType()) << endl;
         EV << "Frame MacNodeId: " << lteInfo->getDestId() << endl;
@@ -118,7 +117,7 @@ void NrPhyUe::handleAirFrame(cMessage *msg)
         return;
     }
 
-    if (binder_->isInMulticastGroup(nodeId_, lteInfo->getMulticastGroupId())) {
+    if (binder_->isInMulticastGroup(nodeId_, lteInfo->getPacketMulticastGroupId())) {
         // HACK: If this is a multicast connection, change the destId of the airframe so that upper layers can handle it
         lteInfo->setDestId(nodeId_);
     }
@@ -132,7 +131,7 @@ void NrPhyUe::handleAirFrame(cMessage *msg)
     // This is a DATA packet
 
     // If the packet is a D2D multicast one, store it and decode it at the end of the TTI
-    if (d2dMulticastEnableCaptureEffect_ && binder_->isInMulticastGroup(nodeId_, lteInfo->getMulticastGroupId())) {
+    if (d2dMulticastEnableCaptureEffect_ && binder_->isInMulticastGroup(nodeId_, lteInfo->getPacketMulticastGroupId())) {
         // If not already started, auto-send a message to signal the presence of data to be decoded
         if (d2dDecodingTimer_ == nullptr) {
             d2dDecodingTimer_ = new cMessage("d2dDecodingTimer");
@@ -157,30 +156,8 @@ void NrPhyUe::handleAirFrame(cMessage *msg)
             recordCqi(cqi, DL);
         }
     }
-    // Apply decider to received packet
-    bool result = true;
-    RemoteSet r = lteInfo->getUserTxParams()->readAntennaSet();
-    if (r.size() > 1) {
-        // DAS
-        for (auto it : r) {
-            EV << "NrPhyUe: Receiving Packet from antenna " << it << "\n";
 
-            /*
-             * On UE set the sender position
-             * and tx power to the sender DAS antenna
-             */
-
-            RemoteUnitPhyData data;
-            data.txPower = lteInfo->getTxPower();
-            data.m = getRadioPosition();
-            frame->addRemoteUnitPhyDataVector(data);
-        }
-        // Apply analog models for DAS
-        result = channelModel->isErrorDas(frame, lteInfo);
-    }
-    else {
-        result = channelModel->isError(frame, lteInfo);
-    }
+    bool result = channelModel->isReceptionSuccessful(frame, lteInfo);
 
     // Update statistics
     if (result)
@@ -197,9 +174,10 @@ void NrPhyUe::handleAirFrame(cMessage *msg)
     delete frame;
 
     // Attach the decider result to the packet as control info
-    lteInfo->setDeciderResult(result);
     *(pkt->addTagIfAbsent<UserControlInfo>()) = *lteInfo;
     delete lteInfo;
+
+    pkt->addTagIfAbsent<PhyReceptionInd>()->setDeciderResult(result);
 
     // Send decapsulated message along with result control info to upperGateOut_
     send(pkt, upperGateOut_);
@@ -337,7 +315,6 @@ void NrPhyUe::doHandover()
 
     if (candidateMasterId_ != NODEID_NONE) {
         binder_->registerServingNode(candidateMasterId_, nodeId_);
-        das_->setMasterRuSet(candidateMasterId_);
     }
     binder_->updateUeInfoCellId(nodeId_, candidateMasterId_);
     // @author Alessandro Noferi
@@ -352,12 +329,7 @@ void NrPhyUe::doHandover()
     currentMasterRssi_ = candidateMasterRssi_;
     hysteresisTh_ = updateHysteresisTh(currentMasterRssi_);
 
-    // update NED parameter
-    if (isNr_)
-        hostModule->par("nrMasterId").setIntValue(num(masterId_));
-    else
-        hostModule->par("masterId").setIntValue(num(masterId_));
-
+    // update mobility pointer
     if (masterId_ == NODEID_NONE)
         masterMobility_ = nullptr;
     else {
@@ -365,21 +337,13 @@ void NrPhyUe::doHandover()
         masterMobility_ = check_and_cast<IMobility *>(masterModule->getSubmodule("mobility"));
     }
     // update cellInfo
-    if (masterId_ != NODEID_NONE)
+    if (oldMaster != NODEID_NONE)
         cellInfo_->detachUser(nodeId_);
 
-    if (candidateMasterId_ != NODEID_NONE) {
-        CellInfo *oldCellInfo = cellInfo_;
-        LteMacEnb *newMacEnb = check_and_cast<LteMacEnb *>(binder_->getMacByNodeId(candidateMasterId_));
-        CellInfo *newCellInfo = newMacEnb->getCellInfo();
-        newCellInfo->attachUser(nodeId_);
-        cellInfo_ = newCellInfo;
-        if (oldCellInfo == nullptr) {
-            // first time the UE is attached to someone
-            int index = intuniform(0, binder_->phyPisaData.maxChannel() - 1);
-            cellInfo_->lambdaInit(nodeId_, index);
-            cellInfo_->channelUpdate(nodeId_, intuniform(1, binder_->phyPisaData.maxChannel2()));
-        }
+    if (masterId_ != NODEID_NONE) {
+        LteMacEnb *newMacEnb = check_and_cast<LteMacEnb *>(binder_->getMacByNodeId(masterId_));
+        cellInfo_ = newMacEnb->getCellInfo();
+        cellInfo_->attachUser(nodeId_);
 
         // send a self-message to schedule the possible mode switch at the end of the TTI (after all UEs have performed the handover)
         cMessage *msg = new cMessage("doModeSwitchAtHandover");

@@ -13,6 +13,7 @@
 #include "simu5g/stack/rlc/um//UmRxEntity.h"
 #include "simu5g/stack/mac/LteMacBase.h"
 #include "simu5g/stack/mac/LteMacEnb.h"
+#include "simu5g/stack/rlc/packet/PdcpTrackingTag_m.h"
 
 namespace simu5g {
 
@@ -251,7 +252,10 @@ void UmRxEntity::moveRxWindow(int pos)
 //void UmRxEntity::toPdcp(LteRlcSdu* rlcSdu)
 void UmRxEntity::toPdcp(Packet *pktAux)
 {
-    auto rlcSdu = pktAux->popAtFront<LteRlcSdu>();
+    // Remove leftover tag added on the TX side. It should have been already removed
+    // in the TX-side MAC, but its cumbersome to implement -- so do it here for now.
+    pktAux->removeTagIfPresent<PdcpTrackingTag>();
+
     LteRlcUm *lteRlc = this->rlc_;
 
     auto lteInfo = pktAux->getTag<FlowControlInfo>();
@@ -284,6 +288,14 @@ void UmRxEntity::toPdcp(Packet *pktAux)
             ue->emit(rlcDelayD2DSignal_, (NOW - ts).dbl());
         }
     }
+
+    if (nodeB_ == nullptr) {
+        // retry getting nodeB_, if it failed in initialize() due to cellId=0 in MAC (some race condition?)
+        LteMacBase *mac = getModuleFromPar<LteMacBase>(par("macModule"), this);
+        nodeB_ = binder_->getRlcByNodeId(mac->getMacCellId(), UM);
+        ASSERT(nodeB_ != nullptr);
+    }
+
     if (nodeB_ != nullptr) {
         nodeB_->emit(rlcCellThroughputSignal_[dir_], cellTputSample);
     }
@@ -330,9 +342,11 @@ void UmRxEntity::reassemble(unsigned int index)
         size_t sduLengthPktLeng;
         auto pktSdu = check_and_cast<Packet *>(pdu->popSdu(sduLengthPktLeng));
 
-        auto rlcSdu = pktSdu->peekAtFront<LteRlcSdu>();
-        unsigned int sduSno = rlcSdu->getSnoMainPacket();
-        unsigned int sduWholeLength = rlcSdu->getLengthMainPacket(); // the length of the whole sdu
+        *pktSdu->addTag<FlowControlInfo>() = *flowControlInfo_;
+
+        auto pdcpTag = pktSdu->getTag<PdcpTrackingTag>();
+        unsigned int sduSno = pdcpTag->getPdcpSequenceNumber();
+        unsigned int sduWholeLength = pdcpTag->getOriginalPacketLength(); // the length of the whole sdu
 
         if (i == 0) { // first SDU
             bool ignoreFragment = false;
@@ -381,7 +395,7 @@ void UmRxEntity::reassemble(unsigned int index)
 
                         // check SDU SN
                         if (buffered_.pkt == nullptr ||
-                            (rlcSdu->getSnoMainPacket() != buffered_.pkt->peekAtFront<LteRlcSdu>()->getSnoMainPacket()) ||
+                            (pdcpTag->getPdcpSequenceNumber() != buffered_.pkt->getTag<PdcpTrackingTag>()->getPdcpSequenceNumber()) ||
                             (pduSno != (buffered_.currentPduSno + 1)) ||  // first and only SDU in PDU. PduSno must be last+1, otherwise drop SDU.
                             ignoreFragment)
                         {
@@ -430,7 +444,7 @@ void UmRxEntity::reassemble(unsigned int index)
 
                         // check SDU SN
                         if (buffered_.pkt == nullptr ||
-                            (rlcSdu->getSnoMainPacket() != buffered_.pkt->peekAtFront<LteRlcSdu>()->getSnoMainPacket()) ||
+                            (pdcpTag->getPdcpSequenceNumber() != buffered_.pkt->getTag<PdcpTrackingTag>()->getPdcpSequenceNumber()) ||
                             (pduSno != (buffered_.currentPduSno + 1)) ||  // first SDU but NOT only in PDU. PduSno must be last+1, otherwise drop SDU.
                             ignoreFragment)
                         {
@@ -493,7 +507,7 @@ void UmRxEntity::reassemble(unsigned int index)
 
                         // check SDU SN
                         if (buffered_.pkt == nullptr ||
-                            (rlcSdu->getSnoMainPacket() != buffered_.pkt->peekAtFront<LteRlcSdu>()->getSnoMainPacket()) ||
+                            (pdcpTag->getPdcpSequenceNumber() != buffered_.pkt->getTag<PdcpTrackingTag>()->getPdcpSequenceNumber()) ||
                             (pduSno != (buffered_.currentPduSno + 1)) ||  // first SDU but NOT only in PDU. PduSno must be last+1, otherwise drop SDU.
                             ignoreFragment)
                         {
@@ -613,37 +627,34 @@ void UmRxEntity::reassemble(unsigned int index)
  * Main Functions
  */
 
-void UmRxEntity::initialize()
+void UmRxEntity::initialize(int stage)
 {
-    binder_.reference(this, "binderModule", true);
-    timeout_ = par("timeout").doubleValue();
-    rxWindowDesc_.clear();
-    rxWindowDesc_.windowSize_ = par("rxWindowSize");
-    received_.resize(rxWindowDesc_.windowSize_);
+    if (stage == inet::INITSTAGE_LOCAL) {
+        timeout_ = par("timeout").doubleValue();
+        rxWindowDesc_.clear();
+        rxWindowDesc_.windowSize_ = par("rxWindowSize");
+        received_.resize(rxWindowDesc_.windowSize_);
 
-    totalRcvdBytes_ = 0;
-    totalPduRcvdBytes_ = 0;
 
-    rlc_.reference(this, "umModule", true);
+        rlc_.reference(this, "umModule", true);
 
-    //statistics
+        //statistics
 
-    LteMacBase *mac = getModuleFromPar<LteMacBase>(par("macModule"), this);
-    nodeB_ = binder_->getRlcByNodeId(mac->getMacCellId(), UM);
+        LteMacBase *mac = getModuleFromPar<LteMacBase>(par("macModule"), this);
 
-    resetFlag_ = false;
+        dir_ = mac->getNodeType() == NODEB ? UL : DL;
 
-    if (mac->getNodeType() == ENODEB || mac->getNodeType() == GNODEB) {
-        dir_ = UL;
+        // store the node id of the owner module (useful for statistics)
+        ownerNodeId_ = mac->getMacNodeId();
+
+        WATCH(timeout_);
     }
-    else { // UE
-        dir_ = DL;
+    else if (stage == INITSTAGE_SIMU5G_BINDER_ACCESS) {
+        binder_.reference(this, "binderModule", true);
+        LteMacBase *mac = getModuleFromPar<LteMacBase>(par("macModule"), this); // duplicate, see above
+        nodeB_ = binder_->getRlcByNodeId(mac->getMacCellId(), UM);
+        // ASSERT(nodeB_ != nullptr); -- see commit message why this is commented out
     }
-
-    // store the node id of the owner module (useful for statistics)
-    ownerNodeId_ = mac->getMacNodeId();
-
-    WATCH(timeout_);
 }
 
 void UmRxEntity::handleMessage(cMessage *msg)

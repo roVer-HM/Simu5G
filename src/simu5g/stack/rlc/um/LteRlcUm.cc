@@ -14,6 +14,9 @@
 
 #include "simu5g/stack/rlc/um/LteRlcUm.h"
 #include "simu5g/stack/mac/packet/LteMacSduRequest.h"
+#include "simu5g/stack/rlc/packet/LteRlcNewDataTag_m.h"
+#include "simu5g/stack/rlc/packet/PdcpTrackingTag_m.h"
+#include "simu5g/stack/pdcp/packet/LtePdcpPdu_m.h"
 
 namespace simu5g {
 
@@ -113,31 +116,34 @@ void LteRlcUm::handleUpperMessage(cPacket *pktAux)
     if (txbuf == nullptr)
         txbuf = createTxBuffer(cid, lteInfo.get());
 
-    // Create a new RLC packet
-    auto rlcPkt = inet::makeShared<LteRlcSdu>();
-    rlcPkt->setSnoMainPacket(lteInfo->getSequenceNumber());
-    rlcPkt->setLengthMainPacket(pkt->getByteLength());
-    pkt->insertAtFront(rlcPkt);
+    // Extract sequence number from PDCP header
+    auto pdcpHeader = pkt->peekAtFront<LtePdcpHeader>();
+    unsigned int sequenceNumber = pdcpHeader->getSequenceNumber();
+
+    // Add PDCP tracking information
+    auto pdcpTag = pkt->addTag<PdcpTrackingTag>();
+    pdcpTag->setPdcpSequenceNumber(sequenceNumber);
+    pdcpTag->setOriginalPacketLength(pkt->getByteLength());
 
     drop(pkt);
 
     if (txbuf->isHoldingDownstreamInPackets()) {
         // do not store in the TX buffer and do not signal the MAC layer
-        EV << "LteRlcUm::handleUpperMessage - Enqueue packet " << rlcPkt->getClassName() << " into the Holding Buffer\n";
+        EV << "LteRlcUm::handleUpperMessage - Enqueue packet into the Holding Buffer\n";
         txbuf->enqueHoldingPackets(pkt);
     }
     else {
         if (txbuf->enque(pkt)) {
-            EV << "LteRlcUm::handleUpperMessage - Enqueue packet " << rlcPkt->getClassName() << " into the Tx Buffer\n";
+            EV << "LteRlcUm::handleUpperMessage - Enqueue packet into the Tx Buffer\n";
 
             // create a message to notify the MAC layer that the queue contains new data
-            auto newDataPkt = inet::makeShared<LteRlcPduNewData>();
             // make a copy of the RLC SDU
             auto pktDup = pkt->dup();
-            pktDup->insertAtFront(newDataPkt);
+            // add tag to indicate new data availability to MAC
+            pktDup->addTag<LteRlcNewDataTag>();
             // the MAC will only be interested in the size of this packet
 
-            EV << "LteRlcUm::handleUpperMessage - Sending message " << newDataPkt->getClassName() << " to port UM_Sap_down$o\n";
+            EV << "LteRlcUm::handleUpperMessage - Sending new data indication to port UM_Sap_down$o\n";
             send(pktDup, downOutGate_);
         }
         else {
@@ -153,6 +159,8 @@ void LteRlcUm::handleLowerMessage(cPacket *pktAux)
     EV << "LteRlcUm::handleLowerMessage - Received packet " << pkt->getName() << " from lower layer\n";
     auto lteInfo = pkt->getTagForUpdate<FlowControlInfo>();
     auto chunk = pkt->peekAtFront<inet::Chunk>();
+
+    ASSERT(pkt->findTag<PdcpTrackingTag>() == nullptr);
 
     if (inet::dynamicPtrCast<const LteMacSduRequest>(chunk) != nullptr) {
         // get the corresponding Tx buffer
@@ -195,7 +203,7 @@ void LteRlcUm::deleteQueues(MacNodeId nodeId)
     // at the UE, delete all connections
     // at the eNB, delete connections related to the given UE
     for (auto tit = txEntities_.begin(); tit != txEntities_.end();) {
-        if (nodeType == UE || ((nodeType == ENODEB || nodeType == GNODEB) && tit->first.getNodeId() == nodeId)) {
+        if (nodeType == UE || (nodeType == NODEB && tit->first.getNodeId() == nodeId)) {
             tit->second->deleteModule(); // Delete Entity
             tit = txEntities_.erase(tit);    // Delete Element
         }
@@ -204,7 +212,7 @@ void LteRlcUm::deleteQueues(MacNodeId nodeId)
         }
     }
     for (auto rit = rxEntities_.begin(); rit != rxEntities_.end();) {
-        if (nodeType == UE || ((nodeType == ENODEB || nodeType == GNODEB) && rit->first.getNodeId() == nodeId)) {
+        if (nodeType == UE || (nodeType == NODEB && rit->first.getNodeId() == nodeId)) {
             rit->second->deleteModule(); // Delete Entity
             rit = rxEntities_.erase(rit);    // Delete Element
         }
@@ -230,8 +238,8 @@ void LteRlcUm::initialize(int stage)
         txEntityModuleType_ = cModuleType::get(par("txEntityModuleType").stringValue());
         rxEntityModuleType_ = cModuleType::get(par("rxEntityModuleType").stringValue());
 
-        std::string nodeTypePar = par("nodeType").stdstringValue();
-        nodeType = static_cast<RanNodeType>(cEnum::get("simu5g::RanNodeType")->lookup(nodeTypePar.c_str()));
+        std::string nodeTypeStr = par("nodeType").stdstringValue();
+        nodeType = aToNodeType(nodeTypeStr);
 
         WATCH_MAP(txEntities_);
         WATCH_MAP(rxEntities_);

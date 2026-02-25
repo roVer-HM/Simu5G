@@ -68,7 +68,7 @@ class LteMacBase : public cSimpleModule
 
   protected:
 
-    unsigned int totalOverflowedBytes_;
+    unsigned int totalOverflowedBytes_ = 0;
     static simsignal_t macBufferOverflowDlSignal_;
     static simsignal_t macBufferOverflowUlSignal_;
     static simsignal_t macBufferOverflowD2DSignal_;
@@ -93,8 +93,6 @@ class LteMacBase : public cSimpleModule
     /*
      * MAC MIB Params
      */
-    bool muMimo_;
-
     int harqProcesses_;
 
     /// TTI self message
@@ -104,7 +102,7 @@ class LteMacBase : public cSimpleModule
     double ttiPeriod_ = TTI;
 
     /// MacNodeId
-    MacNodeId nodeId_;
+    MacNodeId nodeId_ = NODEID_NONE;
 
     opp_component_ptr<cModule> networkNode_;
 
@@ -119,12 +117,12 @@ class LteMacBase : public cSimpleModule
      * Consolidates connection descriptor, real buffer, and virtual buffer
      */
     struct OutgoingConnectionInfo {
-        FlowControlInfo flowInfo;       // Connection flow information
+        FlowDescriptor flowInfo;        // Connection flow information
         LteMacQueue *queue = nullptr;   // Real MAC buffer for actual packets
         LteMacBuffer *buffer = nullptr; // Virtual buffer for scheduling decisions
 
         OutgoingConnectionInfo() {}
-        OutgoingConnectionInfo(const FlowControlInfo& info, LteMacQueue *q, LteMacBuffer *buf) : flowInfo(info), queue(q), buffer(buf) {}
+        OutgoingConnectionInfo(const FlowDescriptor& info, LteMacQueue *q, LteMacBuffer *buf) : flowInfo(info), queue(q), buffer(buf) {}
     };
 
     /// Consolidated outgoing connection information (replaces mbuf_, macBuffers_, and connDesc_)
@@ -142,15 +140,18 @@ class LteMacBase : public cSimpleModule
     /* Incoming Connection Descriptors:
      * a connection is stored at the first MAC SDU delivered to the RLC
      */
-    std::map<MacCid, FlowControlInfo> connDescIn_;
+    std::map<MacCid, FlowDescriptor> connDescIn_;
 
     /* LCG to CID and buffers map - used for supporting LCG - based scheduler operations
      * TODO: delete/update entries on handover
      */
     LcgMap lcgMap_;
 
-    // Node Type;
+    // Node Type
     RanNodeType nodeType_;
+
+    // LTE or NR
+    bool isNr_ = false;
 
     // record the last TTI that HARQ processes for a given UE have been aborted (useful for D2D switching)
     std::map<MacNodeId, simtime_t> resetHarq_;
@@ -171,10 +172,10 @@ class LteMacBase : public cSimpleModule
 
     // statistics in visualization
     bool statDisplay_;
-    uint64_t nrFromUpper_;
-    uint64_t nrFromLower_;
-    uint64_t nrToUpper_;
-    uint64_t nrToLower_;
+    uint64_t nrFromUpper_ = 0;
+    uint64_t nrFromLower_ = 0;
+    uint64_t nrToUpper_ = 0;
+    uint64_t nrToLower_ = 0;
 
     // support to print harqErrorRate at the end of the simulation
     unsigned int totalHarqErrorRateDlSum_ = 0;
@@ -188,10 +189,6 @@ class LteMacBase : public cSimpleModule
     void decreaseNumerologyPeriodCounter();
 
   public:
-
-    /**
-     * Initializes MAC Buffers
-     */
 
     /**
      * Deletes MAC Buffers
@@ -234,6 +231,7 @@ class LteMacBase : public cSimpleModule
 
     MacNodeId getMacNodeId()
     {
+        ASSERT(nodeId_ != NODEID_NONE);
         return nodeId_;
     }
 
@@ -264,7 +262,7 @@ class LteMacBase : public cSimpleModule
     }
 
     // Returns flow control info for a specific CID
-    const FlowControlInfo& getConnDesc(MacCid cid)
+    const FlowDescriptor& getConnDesc(MacCid cid)
     {
         auto it = connDescOut_.find(cid);
         if (it == connDescOut_.end())
@@ -314,12 +312,6 @@ class LteMacBase : public cSimpleModule
     unsigned int harqProcesses() const
     {
         return harqProcesses_;
-    }
-
-    // Returns the MU-MIMO enabled flag
-    bool muMimo() const
-    {
-        return muMimo_;
     }
 
     RanNodeType getNodeType()
@@ -380,7 +372,6 @@ class LteMacBase : public cSimpleModule
     /**
      * Statistics recording
      */
-    void finish() override;
 
     /**
      * Deleting the module
@@ -420,11 +411,12 @@ class LteMacBase : public cSimpleModule
     virtual void macPduMake(MacCid cid = MacCid()) = 0;
     virtual void macPduUnmake(cPacket *pkt) = 0;
 
+  public:
     /**
      * createOutgoingConnection() creates MAC queues and buffers for a given CID
      * and registers the outgoing connection if they don't already exist
      */
-    virtual void createOutgoingConnection(MacCid cid, const FlowControlInfo& lteInfo);
+    virtual void createOutgoingConnection(MacCid cid, const FlowDescriptor& connInfo);
 
     /**
      * deleteOutgoingConnection() deletes MAC queues and buffers for a given CID
@@ -439,8 +431,9 @@ class LteMacBase : public cSimpleModule
      * createIncomingConnection() registers an incoming connection for a given CID
      * if it doesn't already exist
      */
-    virtual void createIncomingConnection(MacCid cid, const FlowControlInfo& lteInfo);
+    virtual void createIncomingConnection(MacCid cid, const FlowDescriptor& connInfo);
 
+  protected:
     /**
      * bufferizePacket() is called every time a packet is
      * received from the upper layer

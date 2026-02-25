@@ -19,8 +19,7 @@
 #include "simu5g/stack/pdcp/packet/LtePdcpPdu_m.h"
 #include "simu5g/stack/rlc/LteRlcDefs.h"
 #include "simu5g/stack/rlc/am/LteRlcAm.h"
-#include "simu5g/stack/rlc/am/packet/LteRlcAmPdu.h"
-#include "simu5g/stack/rlc/am/packet/LteRlcAmSdu_m.h"
+#include "simu5g/stack/rlc/packet/LteRlcPdu_m.h"
 
 namespace simu5g {
 
@@ -79,7 +78,7 @@ class AmRxQueue : public cSimpleModule
 
     //Statistics
     static unsigned int totalCellRcvdBytes_;
-    unsigned int totalRcvdBytes_;
+    unsigned int totalRcvdBytes_ = 0;
     Direction dir_ = UNKNOWN_DIRECTION;
     static simsignal_t rlcCellPacketLossSignal_[2];
     static simsignal_t rlcPacketLossSignal_[2];
@@ -103,7 +102,8 @@ class AmRxQueue : public cSimpleModule
     void handleMessage(cMessage *msg) override;
 
     //initialize
-    void initialize() override;
+    void initialize(int stage) override;
+    int numInitStages() const override { return inet::NUM_INIT_STAGES; }
 
   protected:
 
@@ -145,4 +145,3 @@ class AmRxQueue : public cSimpleModule
 } //namespace
 
 #endif
-

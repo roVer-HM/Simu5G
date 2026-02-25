@@ -27,7 +27,7 @@ class MecRequestBackgroundGeneratorApp : public MecAppBase
     int numberOfApplications_;    // requests to send in this session
     cMessage *burstTimer = nullptr;
     cMessage *burstPeriod = nullptr;
-    bool burstFlag;
+    bool burstFlag = false;
     cMessage *sendBurst = nullptr;
 
     inet::TcpSocket *serviceSocket_ = nullptr;
@@ -58,4 +58,3 @@ class MecRequestBackgroundGeneratorApp : public MecAppBase
 } //namespace
 
 #endif /* APPS_MEC_MEAPPS_MEBGAPP_H_ */
-

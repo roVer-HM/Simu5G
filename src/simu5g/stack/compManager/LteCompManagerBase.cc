@@ -21,68 +21,76 @@ using namespace inet;
 // statistics
 simsignal_t LteCompManagerBase::compReservedBlocksSignal_ = registerSignal("compReservedBlocks");
 
-void LteCompManagerBase::initialize()
+void LteCompManagerBase::initialize(int stage)
 {
-    // get the node id
-    nodeId_ = MacNodeId(inet::getContainingNode(this)->par("macCellId").intValue());
+    if (stage == inet::INITSTAGE_LOCAL) {
+        // get the node id
+        nodeId_ = MacNodeId(inet::getContainingNode(this)->par("macCellId").intValue());
+        ASSERT(nodeId_ != MacNodeId(-1));  // i.e. already set programmatically
 
-    // get reference to the binder
-    Binder *binder = inet::getModuleFromPar<Binder>(par("binderModule"), this);
+        // get reference to the gates
+        x2ManagerInGate_ = gate("x2ManagerIn");
+        x2ManagerOutGate_ = gate("x2ManagerOut");
 
-    // get reference to the gates
-    x2ManagerInGate_ = gate("x2ManagerIn");
-    x2ManagerOutGate_ = gate("x2ManagerOut");
+        nodeType_ = parseNodeType(par("compNodeType").stringValue());
 
-    // get reference to mac layer
-    mac_ = check_and_cast<LteMacEnb *>(binder->getMacByNodeId(nodeId_));
+        // register to the X2 Manager
+        auto pkt = new Packet("X2CompMsg");
+        auto initMsg = makeShared<X2CompMsg>();
+        pkt->insertAtFront(initMsg);
+        auto ctrlInfo = pkt->addTagIfAbsent<X2ControlInfoTag>();
+        ctrlInfo->setInit(true);
 
-    // get the number of available bands
-    numBands_ = mac_->getCellInfo()->getNumBands();
+        send(pkt, x2ManagerOutGate_);
 
-    const char *nodeType = par("compNodeType").stringValue();
+        if (nodeType_ != COMP_CLIENT) {
+            // get the list of slave nodes
+            auto clients = check_and_cast<cValueArray *>(par("clientList").objectValue())->asIntVector();
+            for (int client : clients)
+                clientList_.push_back(X2NodeId(client));
+
+            // get coordination period
+            coordinationPeriod_ = par("coordinationPeriod").doubleValue();
+            if (coordinationPeriod_ < TTI)
+                coordinationPeriod_ = TTI;
+
+            // Start coordinator tick
+            compCoordinatorTick_ = new cMessage("compCoordinatorTick_");
+            compCoordinatorTick_->setSchedulingPriority(3);        // compCoordinatorTick_ after slaves' TTI TICK. TODO check if it must be done before or after..
+            scheduleAt(NOW + coordinationPeriod_, compCoordinatorTick_);
+        }
+
+        if (nodeType_ != COMP_COORDINATOR) {
+            coordinatorId_ = X2NodeId(par("coordinatorId").intValue());
+
+            // Start TTI tick
+            compClientTick_ = new cMessage("compClientTick_");
+            compClientTick_->setSchedulingPriority(2);        // compClientTick_ after MAC's TTI TICK. TODO check if it must be done before or after..
+            scheduleAt(NOW + TTI, compClientTick_);
+        }
+    }
+    else if (stage == INITSTAGE_SIMU5G_BINDER_ACCESS) {
+        // get reference to the binder
+        Binder *binder = inet::getModuleFromPar<Binder>(par("binderModule"), this);
+
+        // get reference to mac layer
+        mac_ = check_and_cast<LteMacEnb *>(binder->getMacByNodeId(nodeId_));
+
+        // get the number of available bands
+        numBands_ = mac_->getCellInfo()->getNumBands();
+    }
+}
+
+CompNodeType LteCompManagerBase::parseNodeType(const char *nodeType)
+{
     if (strcmp(nodeType, "COMP_CLIENT") == 0)
-        nodeType_ = COMP_CLIENT;
+        return COMP_CLIENT;
     else if (strcmp(nodeType, "COMP_CLIENT_COORDINATOR") == 0)
-        nodeType_ = COMP_CLIENT_COORDINATOR;
+        return COMP_CLIENT_COORDINATOR;
     else if (strcmp(nodeType, "COMP_COORDINATOR") == 0)
-        nodeType_ = COMP_COORDINATOR;
+        return COMP_COORDINATOR;
     else
-        throw cRuntimeError("LteCompManagerBase::initialize - Unrecognized node type %s", nodeType);
-
-    // register to the X2 Manager
-    auto pkt = new Packet("X2CompMsg");
-    auto initMsg = makeShared<X2CompMsg>();
-    pkt->insertAtFront(initMsg);
-    auto ctrlInfo = pkt->addTagIfAbsent<X2ControlInfoTag>();
-    ctrlInfo->setInit(true);
-
-    send(pkt, x2ManagerOutGate_);
-
-    if (nodeType_ != COMP_CLIENT) {
-        // get the list of slave nodes
-        auto clients = check_and_cast<cValueArray *>(par("clientList").objectValue())->asIntVector();
-        for (int client : clients)
-            clientList_.push_back(X2NodeId(client));
-
-        // get coordination period
-        coordinationPeriod_ = par("coordinationPeriod").doubleValue();
-        if (coordinationPeriod_ < TTI)
-            coordinationPeriod_ = TTI;
-
-        // Start coordinator tick
-        compCoordinatorTick_ = new cMessage("compCoordinatorTick_");
-        compCoordinatorTick_->setSchedulingPriority(3);        // compCoordinatorTick_ after slaves' TTI TICK. TODO check if it must be done before or after..
-        scheduleAt(NOW + coordinationPeriod_, compCoordinatorTick_);
-    }
-
-    if (nodeType_ != COMP_COORDINATOR) {
-        coordinatorId_ = X2NodeId(par("coordinatorId").intValue());
-
-        // Start TTI tick
-        compClientTick_ = new cMessage("compClientTick_");
-        compClientTick_->setSchedulingPriority(2);        // compClientTick_ after MAC's TTI TICK. TODO check if it must be done before or after..
-        scheduleAt(NOW + TTI, compClientTick_);
-    }
+        throw cRuntimeError("LteCompManagerBase::parseNodeType - Unrecognized node type %s", nodeType);
 }
 
 void LteCompManagerBase::handleMessage(cMessage *msg)

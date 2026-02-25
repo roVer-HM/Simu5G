@@ -23,6 +23,11 @@ namespace simu5g {
 
 Define_Module(NrMacUe);
 
+NrMacUe::NrMacUe()
+{
+    isNr_ = true;
+}
+
 void NrMacUe::handleSelfMessage()
 {
     EV << "----- UE MAIN LOOP -----" << endl;
@@ -272,7 +277,7 @@ int NrMacUe::macSduRequest()
                 macSduRequest->setLcid(destCid.getLcid());
                 macSduRequest->setSduSize(bit->second);
                 pkt->insertAtFront(macSduRequest);
-                *(pkt->addTag<FlowControlInfo>()) = connDescOut_[destCid].flowInfo;
+                *(pkt->addTag<FlowControlInfo>()) = connDescOut_[destCid].flowInfo.toFlowControlInfo();
                 sendUpperPackets(pkt);
 
                 numRequestedSdus++;
@@ -324,16 +329,13 @@ void NrMacUe::macPduMake(MacCid cid)
 
                 if (sizeBsr > 0) {
                     // Call the appropriate function for making a BSR for D2D communication
+                    BsrType bsrType = bsrD2DMulticastTriggered_ ? D2D_MULTI_SHORT_BSR : D2D_SHORT_BSR;
+                    bsrD2DMulticastTriggered_ = false;
                     Packet *macPktBsr = makeBsr(sizeBsr);
                     auto info = macPktBsr->getTagForUpdate<UserControlInfo>();
+                    info->setPacketLcid(bsrType);
                     info->setCarrierFrequency(carrierFreq);
                     info->setUserTxParams(grant->getUserTxParams()->dup());
-                    if (bsrD2DMulticastTriggered_) {
-                        info->setLcid(D2D_MULTI_SHORT_BSR);
-                        bsrD2DMulticastTriggered_ = false;
-                    }
-                    else
-                        info->setLcid(D2D_SHORT_BSR);
 
                     // Add the created BSR to the PDU List
                     LteChannelModel *channelModel = phy_->getChannelModel();
@@ -371,9 +373,9 @@ void NrMacUe::macPduMake(MacCid cid)
                 Codeword cw = item.first.second;
 
                 // get the direction (UL/D2D/D2D_MULTI) and the corresponding destination ID
-                FlowControlInfo *lteInfo = &(connDescOut_.at(destCid).flowInfo);
-                MacNodeId destId = lteInfo->getDestId();
-                Direction dir = (Direction)lteInfo->getDirection();
+                const FlowDescriptor& connInfo = connDescOut_.at(destCid).flowInfo;
+                MacNodeId destId = connInfo.getDestId();
+                Direction dir = (Direction)connInfo.getDirection();
 
                 std::pair<MacNodeId, Codeword> pktId = {destId, cw};
                 unsigned int sduPerCid = item.second;
@@ -399,7 +401,7 @@ void NrMacUe::macPduMake(MacCid cid)
                     macPkt->addTagIfAbsent<UserControlInfo>()->setSourceId(getMacNodeId());
                     macPkt->addTagIfAbsent<UserControlInfo>()->setDestId(destId);
                     macPkt->addTagIfAbsent<UserControlInfo>()->setDirection(dir);
-                    macPkt->addTagIfAbsent<UserControlInfo>()->setLcid(SHORT_BSR);
+                    macPkt->addTagIfAbsent<UserControlInfo>()->setPacketLcid(SHORT_BSR);
                     macPkt->addTagIfAbsent<UserControlInfo>()->setCarrierFrequency(carrierFreq);
 
                     macPkt->addTagIfAbsent<UserControlInfo>()->setGrantId(schedulingGrant_[carrierFreq]->getGrantId());
@@ -430,13 +432,14 @@ void NrMacUe::macPduMake(MacCid cid)
                     // multicast support
                     // this trick gets the group ID from the MAC SDU and sets it in the MAC PDU
                     auto flowInfo = pkt->getTag<FlowControlInfo>();
-                    int32_t groupId = flowInfo->getMulticastGroupId();
-                    if (groupId >= 0) // for unicast, group id is -1
-                        macPkt->getTagForUpdate<UserControlInfo>()->setMulticastGroupId(groupId);
+                    MacNodeId groupId = flowInfo->getMulticastGroupId();
+                    if (groupId != NODEID_NONE) // for unicast, group id is -1
+                        macPkt->getTagForUpdate<UserControlInfo>()->setPacketMulticastGroupId(groupId);
 
                     drop(pkt);
 
                     auto macPdu = macPkt->removeAtFront<LteMacPdu>();
+
                     macPdu->pushSdu(pkt);
                     macPkt->insertAtFront(macPdu);
                     sduPerCid--;

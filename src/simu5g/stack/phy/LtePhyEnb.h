@@ -18,12 +18,10 @@ namespace simu5g {
 
 using namespace omnetpp;
 
-class DasFilter;
 class LteFeedbackPkt;
 
 class LtePhyEnb : public LtePhyBase
 {
-    friend class DasFilter;
 
   protected:
     /** Broadcast message interval (equal to updatePos interval for mobility) */
@@ -32,12 +30,7 @@ class LtePhyEnb : public LtePhyBase
     /** Self-message to trigger broadcast message sending for handover purposes */
     cMessage *bdcStarter_ = nullptr;
 
-    /**
-     * Pointer to the DAS Filter: used to call DAS functions
-     * when receiving broadcasts and to retrieve physical
-     * antenna properties on packet reception
-     */
-    DasFilter *das_ = nullptr;
+    int randomChannelIndex_;
 
     void initialize(int stage) override;
 
@@ -46,10 +39,6 @@ class LtePhyEnb : public LtePhyBase
     bool handleControlPkt(UserControlInfo *lteinfo, LteAirFrame *frame);
     void handleFeedbackPkt(UserControlInfo *lteinfo, LteAirFrame *frame);
     virtual void requestFeedback(UserControlInfo *lteinfo, LteAirFrame *frame, inet::Packet *pkt);
-    /**
-     * Getter for the DAS Filter
-     */
-    DasFilter *getDasFilter();
     // Feedback computation for PisaPhy
     LteFeedbackComputation *getFeedbackComputationFromName(std::string name, ParameterMap& params);
     void initializeFeedbackComputation();
@@ -64,4 +53,3 @@ class LtePhyEnb : public LtePhyBase
 } //namespace
 
 #endif /* _LTE_AIRPHYENB_H_ */
-

@@ -31,22 +31,12 @@ using namespace inet;
 void LteMacEnbD2D::initialize(int stage)
 {
     LteMacEnb::initialize(stage);
-    if (stage == INITSTAGE_LOCAL) {
+    if (stage == inet::INITSTAGE_LOCAL) {
         cModule *rlcUm = inet::getModuleFromPar<cModule>(par("rlcUmModule"), this);
         std::string rlcUmType = rlcUm->getComponentType()->getName();
         if (rlcUmType != "LteRlcUmD2D")
             throw cRuntimeError("LteMacEnbD2D::initialize - '%s' must be 'LteRlcUmD2D' instead of '%s'", par("rlcUmModule").stringValue(), rlcUmType.c_str());
-    }
-    else if (stage == INITSTAGE_PHYSICAL_ENVIRONMENT) {
-        usePreconfiguredTxParams_ = par("usePreconfiguredTxParams");
-        Cqi d2dCqi = par("d2dCqi");
-        if (usePreconfiguredTxParams_)
-            check_and_cast<AmcPilotD2D *>(amc_->getPilot())->setPreconfiguredTxParams(d2dCqi);
 
-        msHarqInterrupt_ = par("msHarqInterrupt").boolValue();
-        msClearRlcBuffer_ = par("msClearRlcBuffer").boolValue();
-    }
-    else if (stage == INITSTAGE_LAST) { // be sure that all UEs have been initialized
         reuseD2D_ = par("reuseD2D");
         reuseD2DMulti_ = par("reuseD2DMulti");
 
@@ -67,6 +57,16 @@ void LteMacEnbD2D::initialize(int stage)
 
             scheduleAt(NOW + 0.05, new cMessage("updateConflictGraph"));
         }
+
+    }
+    else if (stage == INITSTAGE_SIMU5G_AMC_SETUP) {
+        bool usePreconfiguredTxParams = par("usePreconfiguredTxParams");
+        Cqi d2dCqi = par("d2dCqi");
+        if (usePreconfiguredTxParams)
+            check_and_cast<AmcPilotD2D *>(amc_->getPilot())->setPreconfiguredTxParams(d2dCqi);
+
+        msHarqInterrupt_ = par("msHarqInterrupt").boolValue();
+        msClearRlcBuffer_ = par("msClearRlcBuffer").boolValue();
     }
 }
 
@@ -139,14 +139,14 @@ void LteMacEnbD2D::macPduUnmake(cPacket *cpkt)
 
         EV << "LteMacEnbD2D: pduUnmaker extracted SDU" << endl;
 
-        // store descriptor for the incoming connection, if not already stored
+        // fill FlowControlInfo from stored descriptors
         auto flowInfo = upPkt->getTag<FlowControlInfo>();
-        MacNodeId senderId = flowInfo->getSourceId();
+        MacNodeId senderId = userInfo->getSourceId();
         LogicalCid lcid = flowInfo->getLcid();
         MacCid cid = MacCid(senderId, lcid);
-        if (connDescIn_.find(cid) == connDescIn_.end()) {
-            createIncomingConnection(cid, *flowInfo);
-        }
+        ASSERT(connDescIn_.find(cid) != connDescIn_.end());
+        upPkt->removeTag<FlowControlInfo>();
+        *upPkt->addTag<FlowControlInfo>() = connDescIn_[cid].toFlowControlInfo();
 
         sendUpperPackets(upPkt);
     }
@@ -156,7 +156,7 @@ void LteMacEnbD2D::macPduUnmake(cPacket *cpkt)
         // TODO: see if for cid or lcid
         MacBsr *bsr = check_and_cast<MacBsr *>(macPdu->popCe());
         auto lteInfo = pkt->getTag<UserControlInfo>();
-        LogicalCid lcid = lteInfo->getLcid();  // one of SHORT_BSR or D2D_MULTI_SHORT_BSR
+        LogicalCid lcid = lteInfo->getPacketLcid();  // one of SHORT_BSR or D2D_MULTI_SHORT_BSR
 
         MacCid cid = MacCid(lteInfo->getSourceId(), lcid); // this way, different connections from the same UE (e.g. one UL and one D2D)
                                                                // obtain different CIDs. With the inverse operation, you can get
@@ -431,7 +431,7 @@ void LteMacEnbD2D::macHandleD2DModeSwitch(cPacket *pktAux)
                 else
                     switchPktTx->setOldConnection(false);
                 pktTx->insertAtFront(switchPktTx);
-                *(pktTx->addTag<FlowControlInfo>()) = connInfo.flowInfo;
+                *(pktTx->addTag<FlowControlInfo>()) = connInfo.flowInfo.toFlowControlInfo();
                 sendUpperPackets(pktTx);
                 break;
             }
@@ -475,7 +475,7 @@ void LteMacEnbD2D::macHandleD2DModeSwitch(cPacket *pktAux)
                     switchPktRx->setOldConnection(false);
 
                 pktRx->insertAtFront(switchPktRx);
-                *(pktRx->addTag<FlowControlInfo>()) = lteInfo;
+                *(pktRx->addTag<FlowControlInfo>()) = lteInfo.toFlowControlInfo();
                 sendUpperPackets(pktRx);
                 break;
             }

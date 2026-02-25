@@ -13,6 +13,7 @@
 #include <inet/networklayer/common/L3AddressResolver.h>
 #include "simu5g/stack/d2dModeSelection/D2DModeSwitchNotification_m.h"
 #include "simu5g/stack/packetFlowObserver/PacketFlowObserverBase.h"
+#include "simu5g/common/LteControlInfoTags_m.h"
 
 namespace simu5g {
 
@@ -21,15 +22,14 @@ Define_Module(LtePdcpUeD2D);
 using namespace inet;
 using namespace omnetpp;
 
-MacNodeId LtePdcpUeD2D::getDestId(inet::Ptr<FlowControlInfo> lteInfo)
+MacNodeId LtePdcpUeD2D::getNextHopNodeId(const Ipv4Address& destAddr, bool useNR, MacNodeId sourceId)
 {
-    Ipv4Address destAddr = Ipv4Address(lteInfo->getDstAddr());
     MacNodeId destId = binder_->getMacNodeId(destAddr);
 
     // check if the destination is inside the LTE network
     if (destId == NODEID_NONE || getDirection(destId) == UL) { // if not, the packet is destined to the eNB
         // UE is subject to handovers: master may change
-        return binder_->getNextHop(lteInfo->getSourceId());
+        return binder_->getNextHop(sourceId);
     }
 
     return destId;
@@ -41,12 +41,25 @@ MacNodeId LtePdcpUeD2D::getDestId(inet::Ptr<FlowControlInfo> lteInfo)
 
 void LtePdcpUeD2D::analyzePacket(inet::Packet *pkt)
 {
-    auto lteInfo = pkt->getTagForUpdate<FlowControlInfo>();
+    auto lteInfo = pkt->addTagIfAbsent<FlowControlInfo>();
 
-    setTrafficInformation(pkt, lteInfo);
+    // Traffic category, RLC type
+    LteTrafficClass trafficCategory = getTrafficCategory(pkt);
+    LteRlcType rlcType = getRlcType(trafficCategory);
+    lteInfo->setTraffic(trafficCategory);
+    lteInfo->setRlcType(rlcType);
 
-    // get destination info
-    Ipv4Address destAddr = Ipv4Address(lteInfo->getDstAddr());
+    // direction of transmitted packets depends on node type
+    Direction dir = getNodeTypeById(nodeId_) == UE ? UL : DL;
+    lteInfo->setDirection(dir);
+
+    // get IP flow information
+    auto ipFlowInd = pkt->getTag<IpFlowInd>();
+    Ipv4Address srcAddr = ipFlowInd->getSrcAddr();
+    Ipv4Address destAddr = ipFlowInd->getDstAddr();
+    uint16_t typeOfService = ipFlowInd->getTypeOfService();
+    EV << "Received packet from data port, src= " << srcAddr << " dest=" << destAddr << " ToS=" << typeOfService << endl;
+
     MacNodeId destId;
 
     // the direction of the incoming connection is a D2D_MULTI one if the application is of the same type,
@@ -57,13 +70,8 @@ void LtePdcpUeD2D::analyzePacket(inet::Packet *pkt)
         lteInfo->setDirection(D2D_MULTI);
 
         // assign a multicast group id
-        // multicast IP addresses are 224.0.0.0/4.
-        // We consider the host part of the IP address (the remaining 28 bits) as identifier of the group,
-        // so as it is uniquely determined for the whole network
-        uint32_t address = Ipv4Address(lteInfo->getDstAddr()).getInt();
-        uint32_t mask = ~((uint32_t)255 << 28);      // 0000 1111 1111 1111
-        uint32_t groupId = address & mask;
-        lteInfo->setMulticastGroupId((int32_t)groupId);
+        MacNodeId groupId = binder_->getOrAssignDestIdForMulticastAddress(destAddr);
+        lteInfo->setMulticastGroupId(groupId);
     }
     else {
         destId = binder_->getMacNodeId(destAddr);
@@ -89,36 +97,24 @@ void LtePdcpUeD2D::analyzePacket(inet::Packet *pkt)
         }
     }
 
-    // Cid Request
-    EV << "LtePdcpUeD2D : Received CID request for Traffic [ " << "Source: " << Ipv4Address(lteInfo->getSrcAddr())
-       << " Destination: " << Ipv4Address(lteInfo->getDstAddr())
-       << " , ToS: " << lteInfo->getTypeOfService()
-       << " , Direction: " << dirToA((Direction)lteInfo->getDirection()) << " ]\n";
-
-    /*
-     * Different lcid for different directions of the same flow are assigned.
-     * RLC layer will create different RLC entities for different LCIDs
-     */
-
-    ConnectionKey key{Ipv4Address(lteInfo->getSrcAddr()), destAddr, lteInfo->getTypeOfService(), lteInfo->getDirection()};
-    LogicalCid lcid = lookupOrAssignLcid(key);
-
     // assign LCID
+    ConnectionKey key{srcAddr, destAddr, typeOfService, lteInfo->getDirection()};
+    LogicalCid lcid = lookupOrAssignLcid(key);
     lteInfo->setLcid(lcid);
+
     lteInfo->setSourceId(nodeId_);
 
     EV << "LtePdcpUeD2D : Assigned Lcid: " << lcid << "\n";
     EV << "LtePdcpUeD2D : Assigned Node ID: " << nodeId_ << "\n";
 
-    // get effective next hop dest ID
-    destId = getDestId(lteInfo);
+    bool useNR = pkt->getTag<TechnologyReq>()->getUseNR();
+    destId = getNextHopNodeId(destAddr, useNR, lteInfo->getSourceId());
 
-    // this is the body of former LteTxPdcpEntity::setIds()
-    lteInfo->setSourceId(getNodeId());
-    if (lteInfo->getMulticastGroupId() > 0)                                               // destId is meaningless for multicast D2D (we use the id of the source for statistic purposes at lower levels)
+    lteInfo->setSourceId(getNodeId());   // TODO CHANGE HERE!!! Must be the NR node ID if this is an NR connection
+    if (lteInfo->getMulticastGroupId() != NODEID_NONE)   // destId is meaningless for multicast D2D (we use the id of the source for statistic purposes at lower levels)
         lteInfo->setDestId(getNodeId());
     else
-        lteInfo->setDestId(getDestId(lteInfo));
+        lteInfo->setDestId(getNextHopNodeId(destAddr, false, lteInfo->getSourceId()));
 }
 
 void LtePdcpUeD2D::handleMessage(cMessage *msg)
@@ -150,4 +146,3 @@ void LtePdcpUeD2D::pdcpHandleD2DModeSwitch(MacNodeId peerId, LteD2DMode newMode)
 }
 
 } //namespace
-

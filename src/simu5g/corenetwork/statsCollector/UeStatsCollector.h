@@ -63,7 +63,7 @@ class UeStatsCollector : public cSimpleModule
 
     // TODO insert signals for statistics
 
-    bool handover_;
+    bool handover_ = false;
 
   public:
 
@@ -140,11 +140,10 @@ class UeStatsCollector : public cSimpleModule
 
   protected:
     void initialize(int stages) override;
-    int numInitStages() const override { return INITSTAGE_LAST; }
+    int numInitStages() const override { return inet::NUM_INIT_STAGES; }
     void handleMessage(cMessage *msg) override {}
 };
 
 } //namespace
 
 #endif //_LTE_ENOBSTATSCOLLECTOR_H_
-

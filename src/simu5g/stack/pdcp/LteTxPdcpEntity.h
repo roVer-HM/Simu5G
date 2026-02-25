@@ -55,11 +55,11 @@ class LteTxPdcpEntity : public cSimpleModule
 
     bool isCompressionEnabled() { return headerCompressedSize_ != LTE_PDCP_HEADER_COMPRESSION_DISABLED; }
 
-
   public:
 
 
-    void initialize() override;
+    void initialize(int stage) override;
+    int numInitStages() const override { return inet::NUM_INIT_STAGES; }
 
     // create a PDCP PDU from the IP datagram
     void handlePacketFromUpperLayer(Packet *pkt);

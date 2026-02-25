@@ -43,7 +43,6 @@ class BaseStationStatsCollector : public cSimpleModule
 {
   private:
     std::string collectorType_;
-    RanNodeType nodeType_; // ENODEB or GNODEB
 
     // used by the RNI service
     mec::Ecgi ecgi_;
@@ -97,15 +96,6 @@ class BaseStationStatsCollector : public cSimpleModule
 
     const mec::Ecgi& getEcgi() const;
     MacCellId getCellId() const;
-    RanNodeType getCellNodeType() const
-    {
-        return nodeType_;
-    }
-
-    void setCellNodeType(RanNodeType nodeType)
-    {
-        nodeType_ = nodeType;
-    }
 
     // UeStatsCollector management methods
 
@@ -220,7 +210,7 @@ class BaseStationStatsCollector : public cSimpleModule
   protected:
     void initialize(int stages) override;
 
-    int numInitStages() const override { return INITSTAGE_LAST; }
+    int numInitStages() const override { return inet::NUM_INIT_STAGES; }
 
     void handleMessage(cMessage *msg) override;
 

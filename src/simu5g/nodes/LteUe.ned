@@ -14,10 +14,12 @@ package simu5g.nodes;
 
 import inet.applications.contract.IApp;
 import inet.common.MessageDispatcher;
+import simu5g.stack.ICellularNic;
 import inet.common.packet.recorder.PcapRecorder;
+import inet.linklayer.contract.IEthernetLayer; // for inet-4.6
+import inet.linklayer.ethernet.contract.IEthernetLayer; // for inet-4.5
 import inet.linklayer.contract.IEthernetInterface;
 import inet.linklayer.contract.ILoopbackInterface;
-import inet.linklayer.ethernet.contract.IEthernetLayer;
 import inet.mobility.contract.IMobility;
 import inet.networklayer.common.InterfaceTable;
 import inet.networklayer.contract.INetworkLayer;
@@ -25,7 +27,6 @@ import inet.transportlayer.contract.ISctp;
 import inet.transportlayer.contract.ITcp;
 import inet.transportlayer.contract.IUdp;
 import simu5g.corenetwork.statsCollector.UeStatsCollector;
-import simu5g.stack.ICellularNic;
 
 
 //
@@ -63,9 +64,8 @@ module LteUe
 
         //# Node specs
         string nodeType = "UE";  // DO NOT CHANGE
-        int masterId @mutable;
-        int macNodeId @mutable = default(0); // TODO: this is not a real parameter
-        int macCellId @mutable = default(0); // TODO: this is not a real parameter
+        int servingNodeId = default(0); // the initial serving eNodeB of the UE; 0 if none
+        int macNodeId = default(1025+simu5g_seq("LteUe_macNodeId"));
 
         //# Network Layer specs
         bool hasIpv4 = default(true);

@@ -12,6 +12,7 @@
 #include "simu5g/stack/rlc/am/AmTxQueue.h"
 #include "simu5g/stack/rlc/am/LteRlcAm.h"
 #include "simu5g/stack/mac/LteMacBase.h"
+#include "simu5g/stack/rlc/packet/PdcpTrackingTag_m.h"
 
 namespace simu5g {
 
@@ -20,28 +21,29 @@ Define_Module(AmTxQueue);
 AmTxQueue::AmTxQueue() :
      pduTimer_(this), mrwTimer_(this), bufferStatusTimer_(this)
 {
-
     // Initialize timer IDs
     pduTimer_.setTimerId(PDU_T);
     mrwTimer_.setTimerId(MRW_T);
     bufferStatusTimer_.setTimerId(BUFFER_T);
 }
 
-void AmTxQueue::initialize()
+void AmTxQueue::initialize(int stage)
 {
-    // Initialize all parameters from NED.
-    maxRtx_ = par("maxRtx");
-    fragDesc_.fragUnit_ = par("fragmentSize");
-    pduRtxTimeout_ = par("pduRtxTimeout");
-    ctrlPduRtxTimeout_ = par("ctrlPduRtxTimeout");
-    bufferStatusTimeout_ = par("bufferStatusTimeout");
-    txWindowDesc_.windowSize_ = par("txWindowSize");
-    // Resize status vectors
-    received_.resize(txWindowDesc_.windowSize_, false);
-    discarded_.resize(txWindowDesc_.windowSize_ + 1, false);
+    if (stage == inet::INITSTAGE_LOCAL) {
+        // Initialize all parameters from NED.
+        maxRtx_ = par("maxRtx");
+        fragDesc_.fragUnit_ = par("fragmentSize");
+        pduRtxTimeout_ = par("pduRtxTimeout");
+        ctrlPduRtxTimeout_ = par("ctrlPduRtxTimeout");
+        bufferStatusTimeout_ = par("bufferStatusTimeout");
+        txWindowDesc_.windowSize_ = par("txWindowSize");
+        // Resize status vectors
+        received_.resize(txWindowDesc_.windowSize_, false);
+        discarded_.resize(txWindowDesc_.windowSize_ + 1, false);
 
-    // Reference to corresponding RLC AM module
-    lteRlc_.reference(this, "amModule", true);
+        // Reference to corresponding RLC AM module
+        lteRlc_.reference(this, "amModule", true);
+    }
 }
 
 AmTxQueue::~AmTxQueue()
@@ -81,8 +83,7 @@ AmTxQueue::~AmTxQueue()
 void AmTxQueue::enque(Packet *pkt)
 {
     EV << NOW << " AmTxQueue::enque - inserting new SDU  " << endl;
-    // Buffer the SDU
-    auto sdu = pkt->peekAtFront<LteRlcAmSdu>();
+
     sduQueue_.insert(pkt);
 
     // Check if there are waiting SDUs
@@ -101,7 +102,7 @@ std::deque<Packet *> *AmTxQueue::fragmentFrame(Packet *frame, std::deque<int>& w
     EV_DEBUG << "Fragmenting " << *frame << " into " << rlcFragDesc.totalFragments_ << " fragments.\n";
     B offset = B(0);
     std::deque<Packet *> *fragments = new std::deque<Packet *>();
-    const auto& frameHeader = frame->peekAtFront<LteRlcAmSdu>();
+    auto pdcpTag = frame->getTag<PdcpTrackingTag>();
     windowsIndex.clear();
     RlcWindowDesc tmp = txWindowDesc_;
     B fragUnit = B(rlcFragDesc.fragUnit_);
@@ -122,7 +123,7 @@ std::deque<Packet *> *AmTxQueue::fragmentFrame(Packet *frame, std::deque<int>& w
         pdu->setSnoFragment(tmp.seqNum_);
         pdu->setFirstSn(rlcFragDesc.firstSn_);
         pdu->setLastSn(rlcFragDesc.firstSn_ + rlcFragDesc.totalFragments_ - 1);
-        pdu->setSnoMainPacket(frameHeader->getSnoMainPacket());
+        pdu->setSnoMainPacket(pdcpTag->getPdcpSequenceNumber());
         pdu->setTxNumber(0);
         fragment->insertAtFront(pdu);
         EV_TRACE << "Created " << *fragment << " fragment.\n";
@@ -160,7 +161,6 @@ void AmTxQueue::addPdus()
             EV << NOW << " AmTxQueue::addPdus - No pending SDU has been found" << endl;
             // Get the first available SDU (buffer has already been checked to be non-empty)
             auto pkt = check_and_cast<Packet *>(sduQueue_.pop());
-            auto header = pkt->peekAtFront<LteRlcAmSdu>();
 
             int nrFragments = ceil((double)pkt->getByteLength() / (double)fragDesc_.fragUnit_);
 
@@ -809,4 +809,3 @@ void AmTxQueue::handleMessage(cMessage *msg)
 }
 
 } //namespace
-
