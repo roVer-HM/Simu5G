@@ -18,6 +18,7 @@ package simu5g.stack.mac;
 // of MAC Protocol Data Units (PDUs), Channel Status Information (CSI), and Buffer Status Reports (BSRs) over a
 // D2D link. It supports D2D multicast transmission to nearby UEs belonging to a given multicast group.
 //
+// Note [CrowNet]: Throughput calculation has been modified to use packet based events (required for inter-tx stats).
 simple LteMacUeD2D extends LteMacUe
 {
     parameters:
@@ -42,8 +43,12 @@ simple LteMacUeD2D extends LteMacUe
         @statistic[macPacketLossD2D](title="Mac Packet Loss D2D"; unit=""; source="macPacketLossD2D"; record=mean);
         @signal[macDelayD2D];
         @statistic[macDelayD2D](title="Delay at the MAC layer D2D"; unit="s"; source="macDelayD2D"; record=mean,vector);
-        @signal[macThroughputD2D];
-        @statistic[macThroughputD2D](title="Throughput at the MAC layer D2D"; unit="Bps"; source="macThroughputD2D"; record=simu5g_rateavg);
+        // [modifications for CrowNet]
+        // @signal[macThroughputD2D];
+        // @statistic[macThroughputD2D](title="Throughput at the MAC layer D2D"; unit="Bps"; source="macThroughputD2D"; record=simu5g_rateavg);
+		@signal[macPacketD2D](type=inet::Packet);
+		@statistic[macThroughputD2D](title="Throughput at the MAC layer D2D"; unit=bps; source="throughput(macPacketD2D)"; record=mean);
+		// [end of modifications for CrowNet]
 
         @signal[rcvdD2DModeSwitchNotification];
         @statistic[rcvdD2DModeSwitchNotification](title="Reception of mode switch notification (tx side)"; unit=""; source="rcvdD2DModeSwitchNotification"; record=count,vector);

@@ -43,18 +43,29 @@ simple LteMacBase like ILteMac
         //#
         //# Statistics recording
         //#
+        //# Note [Crownet]: Throughput calculation has been adpated to used packet events (required for inter-tx statistics)
         @signal[macDelayDl];
         @statistic[macDelayDl](title="Delay at the MAC layer UL"; unit="s"; source="macDelayDl"; record=mean,vector);
-        @signal[macThroughputDl];
-        @statistic[macThroughputDl](title="Throughput at the MAC layer DL"; unit="Bps"; source="macThroughputDl"; record=simu5g_rateavg);
+        // [modifications for CrowNet:]
+        // @signal[macThroughputDl];
+        // @statistic[macThroughputDl](title="Throughput at the MAC layer DL"; unit="Bps"; source="macThroughputDl"; record=simu5g_rateavg);
+        @signal[macPacketDl](type=inet::Packet);
+        @statistic[macThroughputDl](title="Throughput at the MAC layer DL"; unit=bps; source="throughput(macPacketDl)"; record=mean);
         @signal[macDelayUl];
         @statistic[macDelayUl](title="Delay at the MAC layer UL"; unit="s"; source="macDelayUl"; record=mean,vector);
-        @signal[macThroughputUl];
-        @statistic[macThroughputUl](title="Throughput at the MAC layer UL"; unit="Bps"; source="macThroughputUl"; record=simu5g_rateavg);
-        @signal[macCellThroughputUl];
-        @statistic[macCellThroughputUl](title="Cell Throughput at the MAC layer UL"; unit="Bps"; source="macCellThroughputUl"; record=simu5g_rateavg);
-        @signal[macCellThroughputDl];
-        @statistic[macCellThroughputDl](title="Cell Throughput at the MAC layer DL"; unit="Bps"; source="macCellThroughputDl"; record=simu5g_rateavg);
+        // @signal[macThroughputUl];
+        // @statistic[macThroughputUl](title="Throughput at the MAC layer UL"; unit="Bps"; source="macThroughputUl"; record=simu5g_rateavg);
+        // @signal[macCellThroughputUl];
+        // @statistic[macCellThroughputUl](title="Cell Throughput at the MAC layer UL"; unit="Bps"; source="macCellThroughputUl"; record=simu5g_rateavg);
+        // @signal[macCellThroughputDl];
+        // @statistic[macCellThroughputDl](title="Cell Throughput at the MAC layer DL"; unit="Bps"; source="macCellThroughputDl"; record=simu5g_rateavg);
+        @signal[macPacketUl](type=inet::Packet);
+        @statistic[macThroughputUl](title="Throughput at the MAC layer UL"; unit=bps; source="throughput(macPacketUl)"; record=mean);
+        @signal[macCellPacketUl](type=inet::Packet);
+        @statistic[macCellThroughputUl](title="Cell Throughput at the MAC layer UL"; unit=bps; source="throughput(macCellPacketUl)"; record=mean);
+        @signal[macCellPacketDl](type=inet::Packet);
+        @statistic[macCellThroughputDl](title="Cell Throughput at the MAC layer DL"; unit=bps; source="throughput(macCellPacketDl)"; record=mean);
+        // [end of modifications for CrowNet]
         @signal[macCellPacketLossDl];
         @statistic[macCellPacketLossDl](title="Mac Cell Packet Loss Dl"; unit=""; source="macCellPacketLossDl"; record=mean);
         @signal[macCellPacketLossUl];
