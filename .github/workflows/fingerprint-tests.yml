@@ -36,7 +36,7 @@ jobs:
         with:
           repository: inet-framework/inet
           path: inet4.5
-          ref: v4.5.4
+          ref: v4.6.0
 
       - name: Checking out Simu5G
         uses: actions/checkout@v4
