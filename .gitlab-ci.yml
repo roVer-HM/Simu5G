@@ -34,10 +34,21 @@ Build:
     - echo -n $CI_JOB_TOKEN | docker login -u gitlab-ci-token --password-stdin $CI_REGISTRY
     - docker pull $CI_REGISTRY/rover/crownet/omnetpp:${CROWNET_OPP_CONT_TAG}
   script:
+    # move our simu5g sources to temporary directory so they are not overwritten by cloning the CrowNet main project
     - "mkdir .tmp"
-    - "mv ./{.*,*} .tmp/"
+    - |+
+      for item in ./*; do
+        [ "$item" != "./.tmp" ] && mv "$item" .tmp/
+      done
+      for item in ./.[^.]*; do
+        [ "$item" != "./.tmp" ] && mv "$item" .tmp/
+      done
+    # clone the CrowNet framework
     - "git clone https://gitlab-ci-token:${CI_JOB_TOKEN}@sam-dev.cs.hm.edu/rover/crownet.git"
+    # move original simu5g sources of this project to its location within the CrowNet folder structure
     - "mv .tmp simu5g"
+    # clone inet version (with correct branch)
+    - "rm -rf inet4 || true"
     - "git clone --branch ${INETBRANCH} https://gitlab-ci-token:${CI_JOB_TOKEN}@sam-dev.cs.hm.edu/rover/inet.git inet4"
     - "cd inet4"
     - "../$RV/omnetpp ${CROWNET_OPP_CONT_TAG} exec \"make makefiles\""
