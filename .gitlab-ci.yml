@@ -35,7 +35,7 @@ Build:
     - docker pull $CI_REGISTRY/rover/crownet/omnetpp:${CROWNET_OPP_CONT_TAG}
   script:
     - "mkdir .tmp"
-    - "mv * .tmp"
+    - "mv ./{.*,*} .tmp/"
     - "git clone https://gitlab-ci-token:${CI_JOB_TOKEN}@sam-dev.cs.hm.edu/rover/crownet.git"
     - "mv .tmp simu5g"
     - "git clone --branch ${INETBRANCH} https://gitlab-ci-token:${CI_JOB_TOKEN}@sam-dev.cs.hm.edu/rover/inet.git inet4"
@@ -46,7 +46,6 @@ Build:
     - "find . -name \"*.cc\" -type f -delete"
     # build simu5g itself
     - "cd ../simu5g"
-    - "pwd && ls -a"
     - "../$RV/omnetpp ${CROWNET_OPP_CONT_TAG} exec make makefiles"
     - "../$RV/omnetpp ${CROWNET_OPP_CONT_TAG} exec make -j16 MODE=${BUILDMODE}"
   artifacts:
