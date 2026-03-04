@@ -33,7 +33,19 @@ simple LteRlcUm like ILteRlcUm
 
         //# Rlc Queue
         int queueSize @unit(B) = default(2MiB);              // RLC TX entity SDU queue size (0: unlimited)
+        //# Lcid to bearer mapping
+        // Note: Simu5G currently determines the LCID based
+        // on the src/dst IP addresses and TOS field and uses separate
+        // RLC entities for each of them. In order to evaluate the effect of using
+        // only a single UM LCID and a single bearer, this parameter allows to
+        // use only a single UM TxEntity, as it would be with a single bearer.
+        // Systems such as OpenAirInterface can operate in this mode with a single
+        // bearer, therefore this flag allows to model a similar behavior.
+        //
+        // Otherwise (i.e. if mapAllLcidsToSingleBearer_ is false), separate
+        // entities are used for each LCID, which i the expected behavior in most systems.
         bool mapAllLcidsToSingleBearer = default(false);     // if true, all LCIDs are mapped to a single bearer
+        //# Type of node this Rlc instance is on
         string nodeType @enum(INTERNET,ENODEB,GNODEB,UE);
 
         //# SDU-level statistics
