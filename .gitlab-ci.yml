@@ -3,15 +3,20 @@ variables:
 # Tags of all containers required for building and testing
 # Note: Tags here must include ALL container tags required in the fingerprint
 #       *.csv and *.yml files.
-  # INETBRANCH: 'v4.5.4'
+  GIT_SUBMODULE_STRATEGY: recursive    # clone submodules
+  GIT_SUBMODULE_DEPTH: 3               # clone until a submodule depth as specified here is reached
+  GIT_SUBMODULE_UPDATE_FLAGS: --jobs 4 # speed-up submodule updates by running parallel jobs
+  GIT_LFS_SKIP_SMUDGE: "1"             # ignore lfs (some problems with vadere submodule)
+  
+  # INETBRANCH: 'v4.6.0'
   INETBRANCH: 'hm_master'
   BUILDMODE: 'release'
   CROWNET_IMAGE_REG: '${CI_REGISTRY}'
   CROWNET_IMAGE_BASE: '${CROWNET_IMAGE_REG}/rover/crownet'
-  CROWNET_OPP_CONT_TAG: '6.1.0'  #tag of OMNeT++ container to be used
+  CROWNET_OPP_CONT_TAG: '6.3.0'        # tag of OMNeT++ container to be used
+  CROWNET_HOME: '${CI_PROJECT_DIR}'    # all files relative to this
 
-  CROWNET_IMAGE_REG: '${CI_REGISTRY}'
-  CROWNET_IMAGE_BASE: '${CROWNET_IMAGE_REG}/rover/crownet'
+  DOCKER_CLIENT_TIMEOUT: '300'         # timeout for docker client (needs to be higher than default)
 
 stages:
   - build
@@ -29,14 +34,25 @@ Build:
     - echo -n $CI_JOB_TOKEN | docker login -u gitlab-ci-token --password-stdin $CI_REGISTRY
     - docker pull $CI_REGISTRY/rover/crownet/omnetpp:${CROWNET_OPP_CONT_TAG}
   script:
+    # move our simu5g sources to temporary directory so they are not overwritten by cloning the CrowNet main project
     - "mkdir .tmp"
-    - "mv * .tmp"
+    - |+
+      for item in ./*; do
+        [ "$item" != "./.tmp" ] && mv "$item" .tmp/
+      done
+      for item in ./.[^.]*; do
+        [ "$item" != "./.tmp" ] && mv "$item" .tmp/
+      done
+    # clone the CrowNet framework
     - "git clone https://gitlab-ci-token:${CI_JOB_TOKEN}@sam-dev.cs.hm.edu/rover/crownet.git"
+    # move original simu5g sources of this project to its location within the CrowNet folder structure
     - "mv .tmp simu5g"
+    # clone inet version (with correct branch)
+    - "rm -rf inet4 || true"
     - "git clone --branch ${INETBRANCH} https://gitlab-ci-token:${CI_JOB_TOKEN}@sam-dev.cs.hm.edu/rover/inet.git inet4"
     - "cd inet4"
-    - "../$RV/omnetpp ${CROWNET_OPP_CONT_TAG} exec \"source setenv && make makefiles\""
-    - "../$RV/omnetpp ${CROWNET_OPP_CONT_TAG} exec \"source setenv && make -j16 MODE=${BUILDMODE}\"; TEST_STATUS=${PIPESTATUS[0]}"
+    - "../$RV/omnetpp ${CROWNET_OPP_CONT_TAG} exec \"make makefiles\""
+    - "../$RV/omnetpp ${CROWNET_OPP_CONT_TAG} exec \"make -j16 MODE=${BUILDMODE}\"; TEST_STATUS=${PIPESTATUS[0]}"
     # we do not need the inet sources anymore - delete them to have less artifacts
     - "find . -name \"*.cc\" -type f -delete"
     # build simu5g itself
@@ -56,6 +72,11 @@ Build:
 # This job runs the fingerprint tests
 Fingerprints:
   stage: test
+  before_script:
+  # docker login asks for the password to be passed through stdin for security
+  # we use $CI_JOB_TOKEN here which is a special token provided by GitLab
+  - echo -n $CI_JOB_TOKEN | docker login -u gitlab-ci-token --password-stdin $CI_REGISTRY
+  - docker pull $CI_REGISTRY/rover/crownet/omnetpp:${CROWNET_OPP_CONT_TAG}
   script:
     - "cd simu5g/tests/fingerprint"
     - "../../../../$RV/omnetpp ${CROWNET_OPP_CONT_TAG} exec ./fingerprints"

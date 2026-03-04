@@ -29,14 +29,14 @@ jobs:
         with:
           repository: omnetpp/omnetpp
           path: omnetpp
-          ref: omnetpp-6.1.0
+          ref: omnetpp-6.3.0
 
       - name: Checking out INET
         uses: actions/checkout@v4
         with:
           repository: inet-framework/inet
           path: inet4.5
-          ref: v4.5.4
+          ref: v4.6.0
 
       - name: Checking out Simu5G
         uses: actions/checkout@v4
@@ -80,7 +80,7 @@ jobs:
           echo "::endgroup::"
 
           echo "::group::Configuring OMNeT++"
-          ./configure WITH_LIBXML=yes WITH_QTENV=no WITH_OSG=no WITH_OSGEARTH=no
+          ./configure WITH_LIBXML=yes WITH_QTENV=no WITH_OSG=no WITH_OSGEARTH=no WITH_SCAVE_PYTHON_BINDINGS=no WITH_PYTHON=no
           echo "::endgroup::"
 
           echo "::group::Building OMNeT++"
