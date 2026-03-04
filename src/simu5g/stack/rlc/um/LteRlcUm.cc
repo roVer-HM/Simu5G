@@ -184,7 +184,7 @@ void LteRlcUm::handleLowerMessage(cPacket *pktAux)
 
         // Extract information from fragment
         MacNodeId nodeId = (lteInfo->getDirection() == DL) ? lteInfo->getDestId() : lteInfo->getSourceId();
-        MacCid cid = MacCid(nodeId, lteInfo->getLcid());
+        MacCid cid = MacCid(nodeId, mapAllLcidsToSingleBearer_ ? 1 : lteInfo->getLcid());
         UmRxEntity *rxbuf = lookupRxBuffer(cid);
         if (rxbuf == nullptr)
             rxbuf = createRxBuffer(cid, lteInfo.get());
@@ -237,6 +237,7 @@ void LteRlcUm::initialize(int stage)
         // parameters
         txEntityModuleType_ = cModuleType::get(par("txEntityModuleType").stringValue());
         rxEntityModuleType_ = cModuleType::get(par("rxEntityModuleType").stringValue());
+        mapAllLcidsToSingleBearer_ = par("mapAllLcidsToSingleBearer");
 
         std::string nodeTypeStr = par("nodeType").stdstringValue();
         nodeType = aToNodeType(nodeTypeStr);

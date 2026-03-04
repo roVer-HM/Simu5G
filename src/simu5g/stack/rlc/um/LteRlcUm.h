@@ -64,6 +64,7 @@ class LteRlcUm : public cSimpleModule
     // parameters
     cModuleType *txEntityModuleType_;
     cModuleType *rxEntityModuleType_;
+    bool mapAllLcidsToSingleBearer_;
 
     /*
     * Data structures
