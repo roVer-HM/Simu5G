@@ -1,33 +1,40 @@
 //
-//                  Simu5G
-//
-// Authors: Giovanni Nardini, Giovanni Stea, Antonio Virdis (University of Pisa)
-//
-// This file is part of a software released under the license included in file
-// "license.pdf". Please read LICENSE and README files before using it.
-// The above files and the present reference are part of the software itself,
-// and cannot be removed from it.
-//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Lesser General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+// 
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU Lesser General Public License for more details.
+// 
+// You should have received a copy of the GNU Lesser General Public License
+// along with this program.  If not, see http://www.gnu.org/licenses/.
+// 
 
-#ifndef _LTE_LTERLCUM_H_
-#define _LTE_LTERLCUM_H_
+#ifndef __SIMU5G_NRRLCUM_H_
+#define __SIMU5G_NRRLCUM_H_
+
 
 #include <omnetpp.h>
 #include "common/LteCommon.h"
 #include "common/LteControlInfo.h"
 #include "stack/rlc/packet/LteRlcSdu_m.h"
-#include "stack/rlc/um/UmTxEntity.h"
-#include "stack/rlc/um/UmRxEntity.h"
+#include "stack/rlc/um/NrUmTxEntity.h"
+#include "stack/rlc/um/NrUmRxEntity.h"
 #include "stack/rlc/packet/LteRlcDataPdu.h"
 #include "stack/mac/LteMacBase.h"
 #include "nodes/mec/utils/MecCommon.h"
+#include "LteRlcUm.h"
 
-namespace simu5g {
 
 using namespace omnetpp;
 
-class UmTxEntity;
-class UmRxEntity;
+namespace simu5g {
+
+class NrUmTxEntity;
+class NrUmRxEntity;
 
 /**
  * @class LteRlcUm
@@ -50,9 +57,9 @@ class UmRxEntity;
  *   of this header is fixed at 2 bytes.
  *
  */
-class LteRlcUm : public cSimpleModule
+class NrRlcUm : public LteRlcUm
 {
-  public:
+public:
 
     /**
      * sendFragmented() is invoked by the TXBuffer as a direct method
@@ -61,8 +68,7 @@ class LteRlcUm : public cSimpleModule
      *
      * @param pkt packet to forward
      */
-    // sendFragmented is not implemented in the .cc. It seems not to be used by anyone
-//    void sendFragmented(cPacket *pkt);
+    void sendFragmented(cPacket *pkt);
 
     /**
      * sendDefragmented() is invoked by the RXBuffer as a direct method
@@ -71,7 +77,7 @@ class LteRlcUm : public cSimpleModule
      *
      * @param pkt packet to forward
      */
-    void sendDefragmented(cPacket *pkt);
+    void sendDefragmented(cPacket *pkt) ;
 
     /**
      * deleteQueues() must be called on handover
@@ -79,7 +85,7 @@ class LteRlcUm : public cSimpleModule
      *
      * @param nodeId Id of the node whose queues are deleted
      */
-    virtual void deleteQueues(MacNodeId nodeId);
+    virtual void deleteQueues(MacNodeId nodeId) override;
 
     /**
      * sendToLowerLayer() is invoked by the TXEntity as a direct method
@@ -88,7 +94,7 @@ class LteRlcUm : public cSimpleModule
      *
      * @param pkt packet to forward
      */
-    virtual void sendToLowerLayer(cPacket *pkt);
+    virtual void sendToLowerLayer(cPacket *pkt) override;
 
     /**
      * dropBufferOverflow() is invoked by the TXEntity as a direct method
@@ -96,11 +102,11 @@ class LteRlcUm : public cSimpleModule
      *
      * @param pkt packet to be dropped
      */
-    virtual void dropBufferOverflow(cPacket *pkt);
+    virtual void dropBufferOverflow(cPacket *pkt) override ;
 
-    virtual void resumeDownstreamInPackets(MacNodeId peerId) {}
+    virtual void resumeDownstreamInPackets(MacNodeId peerId) override {}
 
-    virtual bool isEmptyingTxBuffer(MacNodeId peerId) { return false; }
+    virtual bool isEmptyingTxBuffer(MacNodeId peerId) override { return false; }
 
     /**
      * @author Alessandro Noferi
@@ -119,6 +125,8 @@ class LteRlcUm : public cSimpleModule
     void addUeThroughput(MacNodeId nodeId, Throughput throughput);
     double getUeThroughput(MacNodeId nodeId);
     void resetThroughputStats(MacNodeId nodeId);
+
+    void indicateNewDataToMac(cPacket* pktAux);
 
   protected:
 
@@ -165,7 +173,7 @@ class LteRlcUm : public cSimpleModule
      * @return pointer to the TXBuffer for the CID of the flow
      *
      */
-    virtual UmTxEntity *getTxBuffer(inet::Ptr<FlowControlInfo> lteInfo);
+    virtual NrUmTxEntity *getNrTxBuffer(inet::Ptr<FlowControlInfo> lteInfo);
 
     /**
      * getRxBuffer() is used by the receiver to gather the RXBuffer
@@ -177,7 +185,7 @@ class LteRlcUm : public cSimpleModule
      * @return pointer to the RXBuffer for that CID
      *
      */
-    virtual UmRxEntity *getRxBuffer(inet::Ptr<FlowControlInfo> lteInfo);
+    virtual NrUmRxEntity *getNrRxBuffer(inet::Ptr<FlowControlInfo> lteInfo);
 
     /**
      * handler for traffic coming
@@ -194,7 +202,7 @@ class LteRlcUm : public cSimpleModule
      *
      * @param pkt packet to process
      */
-    virtual void handleUpperMessage(cPacket *pkt);
+    virtual void handleUpperMessage(cPacket *pkt) override;
 
     /**
      * UM Mode
@@ -211,7 +219,7 @@ class LteRlcUm : public cSimpleModule
      *
      * @param pkt packet to process
      */
-    virtual void handleLowerMessage(cPacket *pkt);
+    virtual void handleLowerMessage(cPacket *pkt) override;
 
     /*
      * Data structures
@@ -221,10 +229,10 @@ class LteRlcUm : public cSimpleModule
      * The entities map associates each CID with
      * a TX/RX Entity , identified by its ID
      */
-    typedef std::map<MacCid, UmTxEntity *> UmTxEntities;
-    typedef std::map<MacCid, UmRxEntity *> UmRxEntities;
-    UmTxEntities txEntities_;
-    UmRxEntities rxEntities_;
+    typedef std::map<MacCid, NrUmTxEntity *> NrUmTxEntities;
+    typedef std::map<MacCid, NrUmRxEntity *> NrUmRxEntities;
+    NrUmTxEntities nrtxEntities_;
+    NrUmRxEntities nrrxEntities_;
 
     /**
      * @author Alessandro Noferi
@@ -235,10 +243,8 @@ class LteRlcUm : public cSimpleModule
      */
     typedef std::map<MacNodeId, Throughput> ULThroughputPerUE;
     ULThroughputPerUE ulThroughput_;
-
 };
 
 } //namespace
 
 #endif
-
