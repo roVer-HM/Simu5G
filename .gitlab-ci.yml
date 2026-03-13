@@ -65,8 +65,8 @@ Build:
     - crownet/scripts
     # we need to keep the ned files and the simu5g lib
     - simu5g
-    # we need to keep the ned files and the inet lib (all stored in the src subfolder)
-    - inet4/src
+    # we need to keep the inet folder with the environment, ned files and the inet lib
+    - inet4
     expire_in: 2 weeks
 
 # This job runs the fingerprint tests
