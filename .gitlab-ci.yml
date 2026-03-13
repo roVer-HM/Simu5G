@@ -79,7 +79,7 @@ Fingerprints:
   - docker pull $CI_REGISTRY/rover/crownet/omnetpp:${CROWNET_OPP_CONT_TAG}
   script:
     - "cd simu5g/tests/fingerprint"
-    - "../../../../$RV/omnetpp ${CROWNET_OPP_CONT_TAG} exec ./fingerprints"
+    - "../../../$RV/omnetpp ${CROWNET_OPP_CONT_TAG} exec ./fingerprints"
   artifacts:
     when: always
     paths:
