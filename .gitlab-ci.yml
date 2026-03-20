@@ -72,14 +72,18 @@ Build:
 # This job runs the fingerprint tests
 Fingerprints:
   stage: test
+  needs:
+  - job: Build
+    artifacts: true
   before_script:
   # docker login asks for the password to be passed through stdin for security
   # we use $CI_JOB_TOKEN here which is a special token provided by GitLab
   - echo -n $CI_JOB_TOKEN | docker login -u gitlab-ci-token --password-stdin $CI_REGISTRY
   - docker pull $CI_REGISTRY/rover/crownet/omnetpp:${CROWNET_OPP_CONT_TAG}
   script:
+    - INET_LIB_PATH=$(realpath "./inet4/src")
     - "cd simu5g/tests/fingerprint"
-    - "../../../$RV/omnetpp ${CROWNET_OPP_CONT_TAG} exec ./fingerprints"
+    - "../../../$RV/omnetpp ${CROWNET_OPP_CONT_TAG} exec LD_LIBRARY_PATH=\"$LD_LIBRARY_PATH:$INET_LIB_PATH\" ./fingerprints"
   artifacts:
     when: always
     paths:
