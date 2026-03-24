@@ -125,7 +125,7 @@ void NrPdcpUe::analyzePacket(inet::Packet *pkt)
     lteInfo->setSourceId(useNR ? getNrNodeId() : getNodeId());
 
     if (lteInfo->getMulticastGroupId() != NODEID_NONE)   // destId is meaningless for multicast D2D (we use the id of the source for statistical purposes at lower levels)
-        lteInfo->setDestId(getNodeId());
+        lteInfo->setDestId(useNR ? getNrNodeId() : getNodeId());
     else
         lteInfo->setDestId(getNextHopNodeId(destAddr, useNR, lteInfo->getSourceId()));
 
