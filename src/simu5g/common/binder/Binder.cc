@@ -1053,7 +1053,9 @@ void Binder::createConnection(FlowControlInfo *lteInfo, bool withPdcp)
     }
     else {
         for (auto& [nodeId,_] : getNodeInfoMap())  //TODO use lte ones if LTE in DC setup, and NR ones if NR in DC setup
-            if (nodeId != sourceId && isInMulticastGroup(nodeId, groupId))
+            // temporary workaround - assume same technology for multicast group by creating the incoming
+            // data connection only, if isNrUe is same for the node and the source
+            if (nodeId != sourceId && isInMulticastGroup(nodeId, groupId) && isNrUe(nodeId) == isNrUe(sourceId))
                 createIncomingConnectionOnNode(nodeId, lteInfo, getNodeTypeById(nodeId)==UE || withPdcp);
     }
 }
