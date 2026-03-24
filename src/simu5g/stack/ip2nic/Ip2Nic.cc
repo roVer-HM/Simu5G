@@ -336,7 +336,7 @@ void Ip2Nic::analyzePacket(inet::Packet *pkt, Ipv4Address srcAddr, Ipv4Address d
 
         lteInfo->setSourceId(nodeId_);   // TODO CHANGE HERE!!! Must be the NR node ID if this is an NR connection
         if (lteInfo->getMulticastGroupId() != NODEID_NONE)  // destId is meaningless for multicast D2D (we use the id of the source for statistic purposes at lower levels)
-            lteInfo->setDestId(nodeId_);
+            lteInfo->setDestId(useNR ? nrNodeId_: nodeId_); // [CrowNet:] use correct nodeId for NR case
         else
             lteInfo->setDestId(getNextHopNodeId(destAddr, false, lteInfo->getSourceId()));
 
@@ -439,7 +439,7 @@ void Ip2Nic::analyzePacket(inet::Packet *pkt, Ipv4Address srcAddr, Ipv4Address d
 
         lteInfo->setSourceId(nodeId_);   // TODO CHANGE HERE!!! Must be the NR node ID if this is an NR connection
         if (lteInfo->getMulticastGroupId() != NODEID_NONE)  // destId is meaningless for multicast D2D
-            lteInfo->setDestId(nodeId_);
+            lteInfo->setDestId(useNR ? nrNodeId_: nodeId_); // [CrowNet:] use correct nodeId for NR case
         else
             lteInfo->setDestId(getNextHopNodeId(destAddr, false, lteInfo->getSourceId()));
     }
