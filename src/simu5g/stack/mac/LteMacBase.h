@@ -433,6 +433,12 @@ class LteMacBase : public cSimpleModule
      */
     virtual void createIncomingConnection(MacCid cid, const FlowDescriptor& connInfo);
 
+    /**
+     * createIncomingConnection() registers an incoming connection for a given CID
+     * if it doesn't already exist
+     */
+    virtual bool hasIncomingConnection(MacCid cid);
+
   protected:
     /**
      * bufferizePacket() is called every time a packet is

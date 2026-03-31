@@ -612,6 +612,7 @@ class Binder : public cSimpleModule
 
     // SMF-like Session Management Functions
     virtual void establishUnidirectionalDataConnection(FlowControlInfo *lteInfo);
+    virtual void establishIncomingConnections(FlowControlInfo *lteInfo, bool withPdcp);
 
   private:
     virtual bool isDualConnectivityRequired(FlowControlInfo *info);

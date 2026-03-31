@@ -547,11 +547,18 @@ void LteMacUe::macPduUnmake(cPacket *cpkt)
         MacNodeId senderId = userInfo->getSourceId();
         LogicalCid lcid = flowInfo->getLcid();
         MacCid cid = MacCid(senderId, lcid);
-        ASSERT(connDescIn_.find(cid) != connDescIn_.end());
+        EV << "LteMacBase: pduUnmaker extracted SDU" << endl;
+        // ASSERT(connDescIn_.find(cid) != connDescIn_.end());
+        // Note: For a new, dynamically created node which was created after the packet was sent by the source
+        //       the incoming connection has not been created. Therefore, if the incoming connection does not exist
+        //       we discard the packet.
         upPkt->removeTag<FlowControlInfo>();
-        *upPkt->addTag<FlowControlInfo>() = connDescIn_[cid].toFlowControlInfo();
-
-        sendUpperPackets(upPkt);
+        if (hasIncomingConnection(cid)){
+            *upPkt->addTag<FlowControlInfo>() = connDescIn_[cid].toFlowControlInfo();
+            sendUpperPackets(upPkt);
+        } else {
+            EV << "LteMacBase: no incoming connection for cid " << cid << " - discarding SDU"  << endl;
+        }
     }
 
     pkt->insertAtFront(macPdu);

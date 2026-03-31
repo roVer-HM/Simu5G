@@ -50,6 +50,7 @@ class Rrc : public cSimpleModule
     MacNodeId getNrNodeId() const { return nrNodeId; }
     bool isDualTechnology() const { return lteNodeId != NODEID_NONE && nrNodeId != NODEID_NONE; }
 
+    virtual bool hasIncomingConnection(FlowControlInfo *lteInfo);
     virtual void createIncomingConnection(FlowControlInfo *lteInfo, bool withPdcp=true);
     virtual void createOutgoingConnection(FlowControlInfo *lteInfo, bool withPdcp=true);
 };

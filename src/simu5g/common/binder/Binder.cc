@@ -1047,6 +1047,13 @@ void Binder::createConnection(FlowControlInfo *lteInfo, bool withPdcp)
     ASSERT(!sourceIsEnb || !destIsEnb);  // they cannot be both NodeBs
 
     createOutgoingConnectionOnNode(sourceId, lteInfo, getNodeTypeById(sourceId)==UE || withPdcp);
+    establishIncomingConnections(lteInfo, withPdcp);
+}
+
+void Binder::establishIncomingConnections(FlowControlInfo *lteInfo, bool withPdcp) {
+    MacNodeId sourceId = lteInfo->getSourceId();
+    MacNodeId destId = lteInfo->getDestId();
+    MacNodeId groupId = lteInfo->getMulticastGroupId();
 
     if (groupId == NODEID_NONE) {
         createIncomingConnectionOnNode(destId, lteInfo, getNodeTypeById(destId)==UE || withPdcp);
@@ -1064,7 +1071,9 @@ void Binder::createConnection(FlowControlInfo *lteInfo, bool withPdcp)
 void Binder::createIncomingConnectionOnNode(MacNodeId nodeId, FlowControlInfo *lteInfo, bool withPdcp)
 {
     Rrc *rrc = check_and_cast<Rrc*>(getRrcByNodeId(nodeId));
-    rrc->createIncomingConnection(lteInfo, withPdcp);
+    if(!rrc->hasIncomingConnection(lteInfo)) {
+        rrc->createIncomingConnection(lteInfo, withPdcp);
+    }
 }
 
 void Binder::createOutgoingConnectionOnNode(MacNodeId nodeId, FlowControlInfo *lteInfo, bool withPdcp)

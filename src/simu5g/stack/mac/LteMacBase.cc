@@ -233,6 +233,11 @@ void LteMacBase::deleteOutgoingConnection(MacCid cid)
     connDescOut_.erase(it);
 }
 
+bool LteMacBase::hasIncomingConnection(MacCid cid)
+{
+    return !(connDescIn_.find(cid) == connDescIn_.end());
+}
+
 void LteMacBase::createIncomingConnection(MacCid cid, const FlowDescriptor& connInfo)
 {
     Enter_Method("createIncomingConnection(%s)", cid.str().c_str());
@@ -242,7 +247,8 @@ void LteMacBase::createIncomingConnection(MacCid cid, const FlowDescriptor& conn
        << " direction: " << dirToA((Direction)connInfo.getDirection())
        << " multicastGroupId: " << connInfo.getMulticastGroupId() << endl;
 
-    ASSERT(connDescIn_.find(cid) == connDescIn_.end());
+    ASSERT(!hasIncomingConnection(cid));
+
     connDescIn_[cid] = connInfo;
 }
 

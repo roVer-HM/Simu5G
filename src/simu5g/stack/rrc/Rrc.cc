@@ -48,6 +48,22 @@ void Rrc::handleMessage(cMessage *msg)
     throw cRuntimeError("This module does not process messages");
 }
 
+bool Rrc::hasIncomingConnection(FlowControlInfo *lteInfo){
+    bool isMulticast = lteInfo->getMulticastGroupId() != NODEID_NONE;
+    // check if we already have a suitable incoming connection on the node
+    FlowDescriptor desc = FlowDescriptor::fromFlowControlInfo(*lteInfo);
+    MacNodeId senderId = desc.getSourceId();
+    MacNodeId destId = desc.getDestId();
+    LogicalCid lcid = desc.getLcid();
+    MacCid cid = MacCid(senderId, lcid);
+    // FIXME: currently we support multicast only on the same radio technology
+    ASSERT(!isMulticast || (isNrUe(senderId) == isNrUe(destId)));
+    auto mac = (nodeType==UE && isNrUe(destId)) ? nrMacModule.get() : macModule.get();
+
+    // assumption: if the MAC already has an incoming connection for this CID, the corresponding RRC already exists
+    return mac->hasIncomingConnection(cid);
+}
+
 void Rrc::createIncomingConnection(FlowControlInfo *lteInfo, bool withPdcp)
 {
     Enter_Method_Silent("createIncomingConnection()");
