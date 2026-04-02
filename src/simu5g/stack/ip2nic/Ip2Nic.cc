@@ -611,8 +611,10 @@ void Ip2Nic::finish()
 {
     if (getSimulation()->getSimulationStage() != CTX_FINISH) {
         // do this only at deletion of the module during the simulation
-        binder_->unregisterNode(nodeId_);
-        binder_->unregisterNode(nrNodeId_);
+        if (nodeId_ != NODEID_NONE)
+            binder_->unregisterNode(nodeId_);
+        if (nrNodeId_ != NODEID_NONE)
+            binder_->unregisterNode(nrNodeId_);
     }
 }
 
