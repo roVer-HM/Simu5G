@@ -170,8 +170,7 @@ void LtePdcpBase::fromDataPort(cPacket *pktAux)
         ASSERT(entity != nullptr);
     }
 
-    if (getNodeTypeById(lteInfo->getDestId())==UE /* && new */)
-        binder_->establishIncomingConnections((FlowControlInfo *)lteInfo.get(), true);  // FIXME: only if potentially new connection
+    binder_->establishIncomingConnections((FlowControlInfo *)lteInfo.get(), true);  // TODO: implement more efficiently, call only if potentially new node exists
 
     entity->handlePacketFromUpperLayer(pkt);
 }

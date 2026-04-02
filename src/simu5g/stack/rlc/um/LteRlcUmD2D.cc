@@ -108,11 +108,11 @@ void LteRlcUmD2D::deleteQueues(MacNodeId nodeId)
     // at the UE, delete all connections
     // at the eNB, delete connections related to the given UE
     for (auto tit = txEntities_.begin(); tit != txEntities_.end(); ) {
-        // if the entity refers to a D2D_MULTI connection, do not erase it
-        if (tit->second->isD2DMultiConnection()) {
+        // if the entity refers to a D2D_MULTI connection, do not erase it LW: WHY??
+        /*if (tit->second->isD2DMultiConnection()) {
             ++tit;
             continue;
-        }
+        }*/
 
         if (nodeType == UE || (nodeType == NODEB && tit->first.getNodeId() == nodeId)) {
             tit->second->deleteModule(); // Delete Entity
@@ -128,11 +128,12 @@ void LteRlcUmD2D::deleteQueues(MacNodeId nodeId)
     perPeerTxEntities_.clear();
 
     for (auto rit = rxEntities_.begin(); rit != rxEntities_.end(); ) {
-        // if the entity refers to a D2D_MULTI connection, do not erase it
-        if (rit->second->isD2DMultiConnection()) {
+        // if the entity refers to a D2D_MULTI connection, do not erase it LW: WHY??
+        /* if (rit->second->isD2DMultiConnection()) {
             ++rit;
             continue;
         }
+        */
 
         if (nodeType == UE || (nodeType == NODEB && rit->first.getNodeId() == nodeId)) {
             rit->second->deleteModule(); // Delete Entity
