@@ -28,6 +28,8 @@ stages:
 # - builds the simu5g project itself
 Build:
   stage: build
+  tags:
+   - crownet-sim
   before_script:
     # docker login asks for the password to be passed through stdin for security
     # we use $CI_JOB_TOKEN here which is a special token provided by GitLab
@@ -72,6 +74,8 @@ Build:
 # This job runs the fingerprint tests
 Fingerprints:
   stage: test
+  tags:
+  - crownet-sim
   needs:
   - job: Build
     artifacts: true
