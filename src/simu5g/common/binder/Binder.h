@@ -160,7 +160,6 @@ class Binder : public cSimpleModule
     void finish() override;
 
     // helpers
-    virtual bool isValidNodeId(MacNodeId  nodeId) const;
     virtual LteD2DMode computeD2DCapability(MacNodeId src, MacNodeId dst);
 
   public:
@@ -430,6 +429,10 @@ class Binder : public cSimpleModule
      * Returns true if the given address belongs to a MEC host
      */
     virtual bool isMecHost(const inet::L3Address& mecHostAddress);
+    /**
+     * Returns true if the given node id is valid
+     */
+    virtual bool isValidNodeId(MacNodeId  nodeId) const;
     /**
      * Returns the UPF address corresponding to the given MEC Host address
      */

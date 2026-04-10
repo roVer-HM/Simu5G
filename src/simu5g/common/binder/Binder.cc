@@ -189,6 +189,11 @@ void Binder::unregisterNode(MacNodeId id)
         mac->unregisterHarqBufferRx(id);
     }
 
+    // if this is an UE, remove 'id' from the UE info list
+    if (getNodeTypeById(id) == UE)
+        ueList_.erase(std::remove_if(ueList_.begin(), ueList_.end(),
+                               [id](UeInfo *n) { return n->id == id; }), ueList_.end());
+
     // remove 'id' from consolidated node info map
     if (nodeInfoMap_.erase(id) != 1) {
         throw cRuntimeError("Cannot unregister node - node id %d - not found", num(id));
