@@ -144,7 +144,7 @@ void Binder::registerNode(MacNodeId nodeId, cModule *nodeModule, RanNodeType typ
 
     // validate input
     if (nodeInfoMap_.find(nodeId) != nodeInfoMap_.end())
-        throw cRuntimeError("Cannot register node %s in Binder: macNodeId %d already occupied", nodeModule->getFullPath().c_str(), nodeId);
+        throw cRuntimeError("Cannot register node %s in Binder: macNodeId %d already occupied", nodeModule->getFullPath().c_str(), (unsigned short) nodeId);
 
     if (type == NODEB) {
         if (getNodeTypeById(nodeId) != NODEB)
@@ -186,6 +186,11 @@ void Binder::unregisterNode(MacNodeId id)
         LteMacBase *mac = getMacFromMacNodeId(nodeId);
         mac->unregisterHarqBufferRx(id);
     }
+
+    // if this is an UE, remove 'id' from the UE info list
+    if (getNodeTypeById(id) == UE)
+        ueList_.erase(std::remove_if(ueList_.begin(), ueList_.end(),
+                               [id](UeInfo *n) { return n->id == id; }), ueList_.end());
 
     // remove 'id' from consolidated node info map
     if (nodeInfoMap_.erase(id) != 1) {

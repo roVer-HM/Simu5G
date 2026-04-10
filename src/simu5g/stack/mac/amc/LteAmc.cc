@@ -461,6 +461,9 @@ const LteSummaryFeedback& LteAmc::getFeedbackD2D(MacNodeId id, Remote antenna, T
             if (histNodeId == NODEID_NONE) // skip fake UE 0
                 continue;
 
+            if (!binder_->isValidNodeId(histNodeId)) // skip node if not valid (has left simulation)
+                continue;
+
             if (binder_->getD2DCapability(id, histNodeId)) {
                 peerId = histNodeId;
                 break;
