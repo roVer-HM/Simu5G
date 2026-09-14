@@ -1,5 +1,15 @@
-#!/bin/sh
+#!/bin/bash
 set -e
+TEST_ROOT="$( cd -- "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
+# Crownet: if SIMU5G_ROOT is not already set, set it
+if [ -z "${SIMU5G_ROOT}" ]; then
+    export SIMU5G_ROOT="$TEST_ROOT/../.."
+fi
+# Crownet: export default location of INET within the CrowNet framework
+if [ -z "${INET_ROOT}" ]; then
+    export INET_ROOT="$TEST_ROOT/../../../inet4"
+fi
+
 cd $(dirname $0)
 python3 fingerprinttest.py -C $SIMU5G_ROOT -e $SIMU5G_ROOT/bin/simu5g "$@"
 exitcode=$?
