@@ -8,12 +8,11 @@ variables:
   GIT_SUBMODULE_UPDATE_FLAGS: --jobs 4 # speed-up submodule updates by running parallel jobs
   GIT_LFS_SKIP_SMUDGE: "1"             # ignore lfs (some problems with vadere submodule)
   
-  # INETBRANCH: 'v4.6.0'
-  INETBRANCH: 'hm_master'
+  INETBRANCH: 'pub-inet-4.7-crownet'   # branch of INET to be used (must match the one used in CrowNet)
   BUILDMODE: 'release'
   CROWNET_IMAGE_REG: '${CI_REGISTRY}'
   CROWNET_IMAGE_BASE: '${CROWNET_IMAGE_REG}/rover/crownet'
-  CROWNET_OPP_CONT_TAG: '6.3.0'        # tag of OMNeT++ container to be used
+  CROWNET_OPP_CONT_TAG: '6.4.0'        # tag of OMNeT++ container to be used
   CROWNET_HOME: '${CI_PROJECT_DIR}'    # all files relative to this
 
   DOCKER_CLIENT_TIMEOUT: '300'         # timeout for docker client (needs to be higher than default)
